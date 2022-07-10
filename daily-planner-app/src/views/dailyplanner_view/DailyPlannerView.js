@@ -2,9 +2,11 @@ import React from "react";
 
 import "../../css/dailyplanner-view.css"
 
+import { DEFAULT_HORI_GAP } from "../../utils/constants";
+
+import DailyPlannerTop from "./DailyPlannerTop";
 import DailyPlannerLeft from "./DailyPlannerLeft";
 import DailyPlannerRight from "./DailyPlannerRight";
-import DailyPlannerTop from "./DailyPlannerTop";
 
 
 function DailyPlannerView(props) {
@@ -12,7 +14,10 @@ function DailyPlannerView(props) {
     <div className="daily-planner-view">
       <DailyPlannerTop />
 
-      <div className="daily-planner-content">
+      <div
+        className="daily-planner-content"
+        style={{ marginLeft: DEFAULT_HORI_GAP, marginRight: DEFAULT_HORI_GAP }}
+      >
         <DailyPlannerLeft />
         <DailyPlannerRight />
       </div>

@@ -9,3 +9,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
 }
+
+textarea,
+input {
+  font-family: var(--main-font);
+  resize: none;
+  border: none;
+}
