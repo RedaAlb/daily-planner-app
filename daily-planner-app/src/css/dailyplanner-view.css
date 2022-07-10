@@ -1,0 +1,29 @@
+.daily-planner-view {
+  background: blue;
+  display: flex;
+  flex-direction: column;
+}
+
+.daily-planner-top {
+  background: crimson;
+  display: flex;
+}
+
+.daily-planner-content {
+  background: green;
+  display: flex;
+}
+
+.daily-planner-left {
+  background: yellow;
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+}
+
+.daily-planner-right {
+  background: chartreuse;
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+}
