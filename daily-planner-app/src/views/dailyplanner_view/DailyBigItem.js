@@ -30,16 +30,17 @@ function DailyBigItem(props) {
       <Checkbox
         checked={checked}
         onChange={onCheckChange}
-        icon={<RadioButtonUncheckedIcon fontSize="large" sx={{ color: MAIN_COLOUR }} />}
-        checkedIcon={<CheckCircleIcon fontSize="large" sx={{ color: MAIN_COLOUR }} />}
-        sx={{ padding: 0 }}
+        icon={<RadioButtonUncheckedIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
+        checkedIcon={<CheckCircleIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
+        sx={{ padding: 0, fontSize: "42px" }}
       />
 
       <textarea
         rows={3}
         style={{
           width: "100%",
-          fontSize: "18px"
+          fontSize: "18px",
+          fontWeight: 600
         }}
       />
     </div>
