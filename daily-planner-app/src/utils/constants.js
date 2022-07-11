@@ -17,5 +17,11 @@ export const DEFAULT_HORI_GAP = "15px"   // HORI: horizontal
 // Daily big
 export const NUM_DAILY_BIG_ITEMS = 3;
 
+
 // Tasks
 export const NUM_TASK_ITEMS = 12;
+
+
+// Font sizes
+export const PRIMARY_FONT_SIZE = "18px";
+export const SECONDARY_FONT_SIZE = "16px";
