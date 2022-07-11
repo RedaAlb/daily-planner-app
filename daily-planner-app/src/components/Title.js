@@ -10,7 +10,8 @@ function Title(props) {
       color: MAIN_COLOUR,
       textTransform: "uppercase",
       fontWeight: 600,
-      borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`
+      borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
+      userSelect: "none"
     }}>
       {props.text}
     </div>
