@@ -6,6 +6,7 @@ export const MAIN_COLOUR = "#af8d67";
 export const TOPBAR_HEIGHT = "70px";
 export const TOPBAR_LINE_HEIGHT = "2px";
 export const MAIN_LINE_HEIGHT = "1px";
+export const TASK_ITEM_MIN_HEIGHT = "30px";
 
 
 // Gaps
@@ -15,3 +16,6 @@ export const DEFAULT_HORI_GAP = "15px"   // HORI: horizontal
 
 // Daily big
 export const NUM_DAILY_BIG_ITEMS = 3;
+
+// Tasks
+export const NUM_TASK_ITEMS = 12;
