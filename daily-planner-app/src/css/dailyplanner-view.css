@@ -19,7 +19,6 @@
 }
 
 .daily-planner-right {
-  background: chartreuse;
   display: flex;
   flex-direction: column;
   width: 50%;

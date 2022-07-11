@@ -4,7 +4,7 @@ import { Checkbox } from "@mui/material";
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-import { MAIN_COLOUR, MAIN_LINE_HEIGHT } from "../../utils/constants";
+import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/constants";
 
 
 function DailyBigItem(props) {
@@ -39,7 +39,7 @@ function DailyBigItem(props) {
         rows={3}
         style={{
           width: "100%",
-          fontSize: "18px",
+          fontSize: PRIMARY_FONT_SIZE,
           fontWeight: 600
         }}
       />

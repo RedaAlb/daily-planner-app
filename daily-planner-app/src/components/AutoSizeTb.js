@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 
 import TextareaAutosize from "react-textarea-autosize";
+import { SECONDARY_FONT_SIZE } from "../utils/constants";
 
 
 function AutoSizeTb(props) {
@@ -25,7 +26,7 @@ function AutoSizeTb(props) {
       style={{
         width: "100%",
         overflow: "hidden",
-        fontSize: "16px"
+        fontSize: SECONDARY_FONT_SIZE
       }}
     />
   )
