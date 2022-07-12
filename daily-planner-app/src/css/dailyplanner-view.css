@@ -24,7 +24,12 @@
   width: 50%;
 }
 
+.MuiFormControlLabel-root {
+  margin-left: 12px !important;
+}
+
 .MuiFormControlLabel-label {
   font-size: 12px !important;
   user-select: none;
+  width: max-content;
 }
