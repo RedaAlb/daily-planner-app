@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useReducer } from "react";
 
 import "../../css/dailyplanner-view.css"
+
+import DailyplannerContext from "./context/dailyplanner-context";
+import dailyplannerReducer from "./context/dailyplanner-reducer";
 
 import { DEFAULT_HORI_GAP } from "../../utils/constants";
 
@@ -9,19 +12,30 @@ import DailyPlannerLeft from "./DailyPlannerLeft";
 import DailyPlannerRight from "./DailyPlannerRight";
 
 
-function DailyPlannerView(props) {
-  return (
-    <div className="daily-planner-view">
-      <DailyPlannerTop />
+const initialState = {
+  currentDate: new Date(),
+  dateData: {}
+}
 
-      <div
-        className="daily-planner-content"
-        style={{ marginLeft: DEFAULT_HORI_GAP, marginRight: DEFAULT_HORI_GAP }}
-      >
-        <DailyPlannerLeft />
-        <DailyPlannerRight />
+
+function DailyPlannerView(props) {
+  const [state, dispatch] = useReducer(dailyplannerReducer, initialState);
+
+
+  return (
+    <DailyplannerContext.Provider value={{ state: state, dispatch: dispatch }}>
+      <div className="daily-planner-view">
+        <DailyPlannerTop />
+
+        <div
+          className="daily-planner-content"
+          style={{ marginLeft: DEFAULT_HORI_GAP, marginRight: DEFAULT_HORI_GAP }}
+        >
+          <DailyPlannerLeft />
+          <DailyPlannerRight />
+        </div>
       </div>
-    </div>
+    </DailyplannerContext.Provider>
   )
 }
 

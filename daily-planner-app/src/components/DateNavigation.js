@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useContext } from "react";
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -9,29 +9,32 @@ import { Fab } from "@mui/material";
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
+import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
+import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-actions";
+
 
 function DateNavigation(props) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const { state, dispatch } = useContext(dailyplannerContext);
 
 
   const onDateChange = (date) => {
-    setCurrentDate(date);
+    dispatch({ type: SET_DATE, payload: date });
   }
 
 
   const onNextDayClick = () => {
-    const nextDay = new Date(currentDate);
+    const nextDay = new Date(state.currentDate);
     nextDay.setDate(nextDay.getDate() + 1);
 
-    setCurrentDate(nextDay);
+    dispatch({ type: SET_DATE, payload: nextDay });
   }
 
 
   const onPreviousDayClick = () => {
-    const prevDay = new Date(currentDate);
+    const prevDay = new Date(state.currentDate);
     prevDay.setDate(prevDay.getDate() - 1);
 
-    setCurrentDate(prevDay);
+    dispatch({ type: SET_DATE, payload: prevDay });
   }
 
 
@@ -42,7 +45,7 @@ function DateNavigation(props) {
           label=""
           inputFormat="dd MMMM yyyy | EEEE HH:mm"
           ampm={false}
-          value={currentDate}
+          value={state.currentDate}
           onChange={onDateChange}
           renderInput={(params) =>
             <TextField fullWidth  {...params} />
