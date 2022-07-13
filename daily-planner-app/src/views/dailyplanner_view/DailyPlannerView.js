@@ -1,11 +1,13 @@
-import React, { useReducer } from "react";
+import React, { useEffect, useReducer } from "react";
 
 import "../../css/dailyplanner-view.css"
 
 import DailyplannerContext from "./context/dailyplanner-context";
 import dailyplannerReducer from "./context/dailyplanner-reducer";
+import { SET_DATEDATA } from "./context/dailyplanner-actions";
 
 import { DEFAULT_HORI_GAP } from "../../utils/constants";
+import { loadDate } from "../../utils/Firebase";
 
 import DailyPlannerTop from "./DailyPlannerTop";
 import DailyPlannerLeft from "./DailyPlannerLeft";
@@ -20,6 +22,13 @@ const initialState = {
 
 function DailyPlannerView(props) {
   const [state, dispatch] = useReducer(dailyplannerReducer, initialState);
+
+
+  useEffect(() => {
+    loadDate(state.currentDate).then(dateData => {
+      dispatch({ type: SET_DATEDATA, payload: dateData });
+    })
+  }, [state.currentDate])
 
 
   return (

@@ -19,6 +19,11 @@ const dailyplannerReducer = (state, action) => {
     }
 
 
+    case actions.SET_DATEDATA: {
+      return { ...state, dateData: action.payload };
+    }
+
+
     default:
       throw new Error(`No case for action type ${action.type} in dailyplanner reducer.`);
   }
