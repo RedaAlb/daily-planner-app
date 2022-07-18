@@ -1,29 +1,34 @@
-import React, { useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 
-import { Checkbox } from "@mui/material";
+import { Checkbox, TextareaAutosize } from "@mui/material";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
-import { MAIN_COLOUR, MAIN_LINE_HEIGHT, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
-
-import AutoSizeTb from "../../components/AutoSizeTb";
+import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
 
 
 function DailyTaskItem(props) {
-  const [checked, setChecked] = useState(false);
+  const [task, setTask] = useState(props.task);
 
 
   const onCheckChange = (event) => {
     const checkValue = event.target.checked;
-
-    setChecked(checkValue);
     console.log("Task item", props.index, checkValue);
+
+    setTask({ ...task, checked: checkValue });
   }
 
 
-  const onTaskTextChange = (textboxValue) => {
-    console.log(textboxValue);
+  const onTextChange = (event) => {
+    const textboxValue = event.target.value;
+
+    setTask({ ...task, text: textboxValue });
   }
+
+
+  useEffect(() => {
+    setTask(props.task);
+  }, [props.task])
 
 
   return (
@@ -36,18 +41,24 @@ function DailyTaskItem(props) {
       }}
     >
       <Checkbox
-        checked={checked}
+        checked={task.checked}
         onChange={onCheckChange}
         icon={<CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
         checkedIcon={<CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
         sx={{ padding: 0, fontSize: "30px" }}
       />
 
-      <AutoSizeTb
-        onTextChange={onTaskTextChange}
+      <TextareaAutosize
+        value={task.text}
+        onChange={onTextChange}
+        style={{
+          width: "100%",
+          overflow: "hidden",
+          fontSize: SECONDARY_FONT_SIZE
+        }}
       />
     </div>
   )
 }
 
-export default DailyTaskItem;
+export default memo(DailyTaskItem);

@@ -1,18 +1,25 @@
-import React from "react";
+import React, { useContext } from "react";
 
-import { NUM_TASK_ITEMS } from "../../utils/constants";
+import dailyplannerContext from "./context/dailyplanner-context";
 
 import Title from "../../components/Title";
 import DailyTaskItem from "./DailyTaskItem";
 
 
 function DailyTasksList(props) {
+  const { state } = useContext(dailyplannerContext);
+
+
   return (
     <>
       <Title text="Other tasks" />
 
-      {Array(NUM_TASK_ITEMS).fill(0).map((_, index) => (
-        <DailyTaskItem key={index} index={index} />
+      {state.tasks.map((task, index) => (
+        <DailyTaskItem
+          key={index}
+          index={index}
+          task={task}
+        />
       ))}
     </>
   )

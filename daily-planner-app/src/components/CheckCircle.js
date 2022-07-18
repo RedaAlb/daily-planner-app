@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 import { Checkbox, FormControlLabel } from "@mui/material";
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -8,15 +8,20 @@ import { MAIN_COLOUR } from "../utils/constants";
 
 
 function CheckCircle(props) {
-  const [checked, setChecked] = useState(false);
+  const [routine, setRoutine] = useState(props.routine);
 
 
   const onCheckChange = (event) => {
     const checkValue = event.target.checked;
-    setChecked(checkValue);
 
-    props.onChange(checkValue);
+    const newRoutine = { ...routine, checked: checkValue };
+    setRoutine(newRoutine);
   }
+
+
+  useEffect(() => {
+    setRoutine(props.routine);
+  }, [props.routine])
 
 
   return (
@@ -24,7 +29,7 @@ function CheckCircle(props) {
       label={props.text}
       control={
         <Checkbox
-          checked={checked}
+          checked={routine.checked}
           onChange={onCheckChange}
           icon={<RadioButtonUncheckedIcon fontSize="small" sx={{ color: MAIN_COLOUR }} />}
           checkedIcon={<CheckCircleIcon fontSize="small" sx={{ color: MAIN_COLOUR }} />}

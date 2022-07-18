@@ -1,18 +1,25 @@
-import React from "react";
+import React, { useContext } from "react";
 
-import { NUM_DAILY_BIG_ITEMS } from "../../utils/constants";
+import dailyplannerContext from "./context/dailyplanner-context";
 
 import Title from "../../components/Title";
 import DailyBigItem from "./DailyBigItem";
 
 
 function DailyBigList(props) {
+  const { state } = useContext(dailyplannerContext);
+
+
   return (
     <>
       <Title text="Daily Big 3" />
 
-      {Array(NUM_DAILY_BIG_ITEMS).fill(0).map((_, index) => (
-        <DailyBigItem key={index} index={index} />
+      {state.dailyBigs.map((dailyBig, index) => (
+        <DailyBigItem
+          key={index}
+          index={index}
+          dailyBig={dailyBig}
+        />
       ))}
     </>
   )

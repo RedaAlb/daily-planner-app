@@ -14,14 +14,44 @@ export const DEFAULT_VERT_GAP = "30px";  // VERT: vertical
 export const DEFAULT_HORI_GAP = "15px"   // HORI: horizontal
 
 
-// Daily big
+// Quantities
 export const NUM_DAILY_BIG_ITEMS = 3;
-
-
-// Tasks
 export const NUM_TASK_ITEMS = 12;
 
 
 // Font sizes
 export const PRIMARY_FONT_SIZE = "18px";
 export const SECONDARY_FONT_SIZE = "16px";
+
+
+// State objects
+export const ROUTINE_OBJ = {
+  checked: false
+}
+export const DAILY_BIG_OBJ = {
+  checked: false,
+  text: ""
+}
+export const TASK_OBJ = {
+  checked: false,
+  text: ""
+}
+
+
+// State defaults
+export const DEFAULT_DATE = new Date();
+export const DEFAULT_TIME = "";
+export const DEFAULT_ROUTINES = Array(3).fill(ROUTINE_OBJ);
+export const DEFAULT_DAILY_BIGS = Array(NUM_DAILY_BIG_ITEMS).fill(DAILY_BIG_OBJ);
+export const DEFAULT_TASKS = Array(NUM_TASK_ITEMS).fill(TASK_OBJ);
+export const DEFAULT_NOTES = "";
+
+
+export const INITIAL_STATE = {
+  currentDate: DEFAULT_DATE,
+  time: DEFAULT_TIME,
+  routines: DEFAULT_ROUTINES,
+  dailyBigs: DEFAULT_DAILY_BIGS,
+  tasks: DEFAULT_TASKS,
+  notes: DEFAULT_NOTES
+}
