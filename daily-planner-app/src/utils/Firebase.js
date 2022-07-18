@@ -24,7 +24,7 @@ export const loadDate = async (date) => {
   const dateData = await db.get(db.child(dbRef, `/${dateKey}/`)).then((snapshot) => {
     if (snapshot.exists()) {
       const dateData = snapshot.val();
-      console.log("Loaded date");
+      console.log("Loaded date data");
 
       return dateData;
     } else {

@@ -1,29 +1,33 @@
-import React from "react";
+import React, { useContext } from "react";
+
+import dailyplannerContext from "./context/dailyplanner-context";
+
 
 import CheckCircle from "../../components/CheckCircle";
 
 
+// 3 routines is a hard-coded value in constants.js
+const ROUTINES_TEXT = [
+  "Morning routine",
+  "Exercise",
+  "Evening routine"
+]
+
+
 function DailyPlannerRoutines(props) {
-  const onMorningCheckChange = (checked) => {
-    console.log("Morning routine", checked);
-  }
-
-
-  const onExerciseCheckChange = (checked) => {
-    console.log("Exercise", checked);
-  }
-
-
-  const onEveningCheckChange = (checked) => {
-    console.log("Evening routine", checked);
-  }
+  const { state } = useContext(dailyplannerContext);
 
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", paddingRight: "10px" }}>
-      <CheckCircle text="Morning routine" onChange={onMorningCheckChange} />
-      <CheckCircle text="Exercise" onChange={onExerciseCheckChange} />
-      <CheckCircle text="Evening routine" onChange={onEveningCheckChange} />
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {state.routines.map((routine, index) => (
+        <CheckCircle
+          key={index}
+          index={index}
+          routine={routine}
+          text={ROUTINES_TEXT[index]}
+        />
+      ))}
     </div>
   )
 }

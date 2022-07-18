@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 
 import { Checkbox } from "@mui/material";
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
@@ -8,15 +8,27 @@ import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/co
 
 
 function DailyBigItem(props) {
-  const [checked, setChecked] = useState(false);
+  const [dailyBig, setDailyBig] = useState(props.dailyBig);
 
 
   const onCheckChange = (event) => {
     const checkValue = event.target.checked;
-    setChecked(checkValue);
-
     console.log("Daily big item", props.index, checkValue);
+
+    setDailyBig({ ...dailyBig, checked: checkValue });
   }
+
+
+  const onTextChange = (event) => {
+    const textboxValue = event.target.value;
+
+    setDailyBig({ ...dailyBig, text: textboxValue });
+  }
+
+
+  useEffect(() => {
+    setDailyBig(props.dailyBig);
+  }, [props.dailyBig])
 
 
   return (
@@ -28,7 +40,7 @@ function DailyBigItem(props) {
       }}
     >
       <Checkbox
-        checked={checked}
+        checked={dailyBig.checked}
         onChange={onCheckChange}
         icon={<RadioButtonUncheckedIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
         checkedIcon={<CheckCircleIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
@@ -36,6 +48,8 @@ function DailyBigItem(props) {
       />
 
       <textarea
+        value={dailyBig.text}
+        onChange={onTextChange}
         rows={3}
         style={{
           width: "100%",
@@ -47,4 +61,4 @@ function DailyBigItem(props) {
   )
 }
 
-export default DailyBigItem;
+export default memo(DailyBigItem);

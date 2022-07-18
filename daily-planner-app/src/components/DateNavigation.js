@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useEffect, useState } from "react";
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -15,6 +15,8 @@ import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-action
 
 function DateNavigation(props) {
   const { state, dispatch } = useContext(dailyplannerContext);
+
+  const [currentDate, setCurrentDate] = useState(state.currentDate);
 
 
   const onDateChange = (date) => {
@@ -38,14 +40,28 @@ function DateNavigation(props) {
   }
 
 
+  useEffect(() => {
+    if (state.time === "") {
+      setCurrentDate(state.currentDate);
+    } else {
+      const updatedDate = new Date(state.currentDate);
+
+      const timeSplit = state.time.split(":");
+      updatedDate.setHours(timeSplit[0]);
+      updatedDate.setMinutes(timeSplit[1]);
+      setCurrentDate(updatedDate);
+    }
+  }, [state.currentDate, state.time])
+
+
   return (
     <>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <MobileDateTimePicker
           label=""
-          inputFormat="dd MMMM yyyy | EEEE HH:mm"
+          inputFormat={"dd MMMM yyyy | EEEE" + (state.time !== '' ? " HH:mm" : "")}
           ampm={false}
-          value={state.currentDate}
+          value={currentDate}
           onChange={onDateChange}
           renderInput={(params) =>
             <TextField fullWidth  {...params} />
