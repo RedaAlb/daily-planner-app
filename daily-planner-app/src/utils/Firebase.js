@@ -42,10 +42,17 @@ export const loadDate = async (date) => {
 }
 
 
-const getDbDateKey = (date) => {
-  const dateKey = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
+export const getDbDateKey = (date, seperator = "-") => {
+  const dateKey = `${date.getDate()}${seperator}${date.getMonth() + 1}${seperator}${date.getFullYear()}`;
 
   return dateKey;
+}
+
+
+export const deleteDateData = (date) => {
+  const dateKey = getDbDateKey(date);
+
+  db.remove(db.ref(appDb, `/${dateKey}`));
 }
 
 
