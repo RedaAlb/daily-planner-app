@@ -55,3 +55,11 @@ export const INITIAL_STATE = {
   tasks: DEFAULT_TASKS,
   notes: DEFAULT_NOTES
 }
+
+
+// Firebase database
+export const ROUTINES_PATH = "routines";
+export const DAILYBIGS_PATH = "dailyBigs";
+export const TASKS_PATH = "tasks";
+export const NOTES_PATH = "notes";
+export const TIME_PATH = "time";

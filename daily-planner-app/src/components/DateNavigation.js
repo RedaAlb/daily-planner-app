@@ -9,8 +9,11 @@ import { Fab } from "@mui/material";
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 
+import { updateTime } from "../utils/Firebase";
+
 import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
 import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-actions";
+
 
 
 function DateNavigation(props) {
@@ -21,6 +24,7 @@ function DateNavigation(props) {
 
   const onDateChange = (date) => {
     dispatch({ type: SET_DATE, payload: date });
+    updateTime(currentDate, `${date.getHours()}:${date.getMinutes()}`);
   }
 
 
