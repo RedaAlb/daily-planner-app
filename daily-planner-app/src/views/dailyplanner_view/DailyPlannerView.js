@@ -4,9 +4,9 @@ import "../../css/dailyplanner-view.css"
 
 import DailyplannerContext from "./context/dailyplanner-context";
 import dailyplannerReducer from "./context/dailyplanner-reducer";
-import { SET_DAILYBIGS, SET_NOTES, SET_ROUTINES, SET_TASKS, SET_TIME } from "./context/dailyplanner-actions";
+import { SET_DAILYBIGS, SET_DATE_KEYS, SET_NOTES, SET_ROUTINES, SET_TASKS, SET_TIME } from "./context/dailyplanner-actions";
 
-import { loadDate } from "../../utils/Firebase";
+import { loadAllDateKeys, loadDate } from "../../utils/Firebase";
 import { DEFAULT_HORI_GAP, INITIAL_STATE } from "../../utils/constants";
 
 import DailyPlannerTop from "./DailyPlannerTop";
@@ -29,6 +29,13 @@ function DailyPlannerView(props) {
       dispatch({ type: SET_NOTES, payload: dateData.notes });
     })
   }, [state.currentDate])
+
+
+  useEffect(() => {
+    loadAllDateKeys().then(dateKeys => {
+      dispatch({ type: SET_DATE_KEYS, payload: dateKeys });
+    })
+  }, [])
 
 
   return (

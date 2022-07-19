@@ -1,8 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import * as db from "firebase/database";
 
-import { SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
-import { DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH } from "./constants";
+import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
+import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH } from "./constants";
 
 
 const firebaseConfig = {
@@ -53,6 +53,24 @@ export const deleteDateData = (date) => {
   const dateKey = getDbDateKey(date);
 
   db.remove(db.ref(appDb, `/${dateKey}`));
+  db.remove(db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`));
+}
+
+
+export const loadAllDateKeys = async () => {
+  const dateKeys = await db.get(db.ref(appDb, DATE_KEYS_PATH)).then((snapshot) => {
+    if (snapshot.exists()) {
+      const dateKeys = Object.keys(snapshot.val());
+
+      return dateKeys;
+    } else {
+      return []
+    }
+  }).catch((error) => {
+    console.error(error);
+  })
+
+  return dateKeys;
 }
 
 
@@ -84,17 +102,24 @@ export const updateNotes = (date, newNotes) => {
 }
 
 
-export const setTime = (date, time, dispatch) => {
-  // Init time if not already saved for that date.
+export const initDate = (date, time, dispatch) => {
+  // Save time if not already saved for that date, and anything else that needs to happen only once when date is first used.
   // This is called on routine, daily big, task, or notes change.
   const dateKey = getDbDateKey(date);
 
   if (time === "") {
     const newDate = new Date();
     const newTime = `${newDate.getHours()}:${newDate.getMinutes()}`;
-    dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
 
     db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
+    dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
+
+    // Add the dateKey to the db, this is used to add dots to the populated dates in the date picker.
+    const dateKeysRef = db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`);
+    const newDateKeyRef = db.push(dateKeysRef);
+
+    db.set(newDateKeyRef, dateKey);
+    dispatch({ type: ADD_DATE_KEY, payload: dateKey });
   }
 }
 

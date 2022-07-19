@@ -1,5 +1,6 @@
 // Colours
 export const MAIN_COLOUR = "#af8d67";
+export const DATEPICKER_DOT_COLOUR = "#00c182";
 
 
 // Heights
@@ -45,6 +46,7 @@ export const DEFAULT_ROUTINES = Array(3).fill(ROUTINE_OBJ);
 export const DEFAULT_DAILY_BIGS = Array(NUM_DAILY_BIG_ITEMS).fill(DAILY_BIG_OBJ);
 export const DEFAULT_TASKS = Array(NUM_TASK_ITEMS).fill(TASK_OBJ);
 export const DEFAULT_NOTES = "";
+export const DEFAULT_DATE_KEYS = [];
 
 
 export const INITIAL_STATE = {
@@ -53,7 +55,8 @@ export const INITIAL_STATE = {
   routines: DEFAULT_ROUTINES,
   dailyBigs: DEFAULT_DAILY_BIGS,
   tasks: DEFAULT_TASKS,
-  notes: DEFAULT_NOTES
+  notes: DEFAULT_NOTES,
+  dateKeys: DEFAULT_DATE_KEYS,
 }
 
 
@@ -63,3 +66,4 @@ export const DAILYBIGS_PATH = "dailyBigs";
 export const TASKS_PATH = "tasks";
 export const NOTES_PATH = "notes";
 export const TIME_PATH = "time";
+export const DATE_KEYS_PATH = "dateKeys";

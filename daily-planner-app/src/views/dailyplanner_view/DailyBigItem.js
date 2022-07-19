@@ -6,7 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import dailyplannerContext from "./context/dailyplanner-context";
 
-import { setTime, updateDailyBig } from "../../utils/Firebase";
+import { initDate, updateDailyBig } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/constants";
 
 
@@ -32,7 +32,7 @@ function DailyBigItem(props) {
     setDailyBig(newDailyBig);
     updateDailyBig(state.currentDate, props.index, newDailyBig);
 
-    setTime(state.currentDate, state.time, dispatch);
+    initDate(state.currentDate, state.time, dispatch);
   }
 
 
