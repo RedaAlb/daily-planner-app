@@ -6,7 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
 
-import { updateRoutine, setTime } from "../utils/Firebase";
+import { updateRoutine, initDate } from "../utils/Firebase";
 import { MAIN_COLOUR } from "../utils/constants";
 
 
@@ -23,7 +23,7 @@ function CheckCircle(props) {
     setRoutine(newRoutine);
     updateRoutine(state.currentDate, props.index, newRoutine);
 
-    setTime(state.currentDate, state.time, dispatch);
+    initDate(state.currentDate, state.time, dispatch);
   }
 
 

@@ -60,6 +60,19 @@ const dailyplannerReducer = (state, action) => {
     }
 
 
+    case actions.SET_DATE_KEYS: {
+      return { ...state, dateKeys: action.payload };
+    }
+
+
+    case actions.ADD_DATE_KEY: {
+      const newDateKeys = [...state.dateKeys];
+      newDateKeys.push(action.payload);
+
+      return { ...state, dateKeys: newDateKeys };
+    }
+
+
     default:
       throw new Error(`No case for action type ${action.type} in dailyplanner reducer.`);
   }

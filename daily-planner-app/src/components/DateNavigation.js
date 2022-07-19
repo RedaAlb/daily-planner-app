@@ -3,17 +3,18 @@ import React, { useContext, useEffect, useState } from "react";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { MobileDateTimePicker } from '@mui/x-date-pickers/MobileDateTimePicker';
+import { PickersDay } from "@mui/x-date-pickers";
 
+import { Badge, Fab } from "@mui/material";
 import TextField from '@mui/material/TextField';
-import { Fab } from "@mui/material";
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-
-import { updateTime } from "../utils/Firebase";
 
 import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
 import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-actions";
 
+import { getDbDateKey, updateTime } from "../utils/Firebase";
+import { DATEPICKER_DOT_COLOUR } from "../utils/constants";
 
 
 function DateNavigation(props) {
@@ -21,10 +22,16 @@ function DateNavigation(props) {
 
   const [currentDate, setCurrentDate] = useState(state.currentDate);
 
+  const badgeContent = <div style={{ marginLeft: "30px", fontSize: "20px", color: DATEPICKER_DOT_COLOUR }}>•</div>;
+
 
   const onDateChange = (date) => {
     dispatch({ type: SET_DATE, payload: date });
-    updateTime(currentDate, `${date.getHours()}:${date.getMinutes()}`);
+
+    // Only save date time if date is already populated, i.e. if time created already exists.
+    if (state.time !== "") {
+      updateTime(currentDate, `${date.getHours()}:${date.getMinutes()}`);
+    }
   }
 
 
@@ -70,6 +77,21 @@ function DateNavigation(props) {
           renderInput={(params) =>
             <TextField fullWidth  {...params} />
           }
+          renderDay={(date, _value, DayComponentProps) => {
+            const dateIsPopulated = state.dateKeys.includes(getDbDateKey(date));
+            const isMarked = !DayComponentProps.outsideCurrentMonth && dateIsPopulated;
+
+            return (
+              <Badge
+                key={date.toString()}
+                overlap="circular"
+                badgeContent={isMarked ? badgeContent : undefined}
+                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+              >
+                <PickersDay {...DayComponentProps} />
+              </Badge>
+            )
+          }}
         />
       </LocalizationProvider>
 

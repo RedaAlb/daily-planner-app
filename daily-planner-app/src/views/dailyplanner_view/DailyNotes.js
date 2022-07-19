@@ -4,7 +4,7 @@ import dailyplannerContext from "./context/dailyplanner-context";
 
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE } from "../../utils/constants";
 
-import { setTime, updateNotes } from "../../utils/Firebase";
+import { initDate, updateNotes } from "../../utils/Firebase";
 import Title from "../../components/Title";
 
 
@@ -20,7 +20,7 @@ function DailyNotes(props) {
     setNotes(textboxValue);
     updateNotes(state.currentDate, textboxValue);
 
-    setTime(state.currentDate, state.time, dispatch);
+    initDate(state.currentDate, state.time, dispatch);
   }
 
 

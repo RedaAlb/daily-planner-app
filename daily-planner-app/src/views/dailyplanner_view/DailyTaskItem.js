@@ -6,7 +6,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
 import dailyplannerContext from "./context/dailyplanner-context";
 
-import { setTime, updateTask } from "../../utils/Firebase";
+import { initDate, updateTask } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
 
 
@@ -32,7 +32,7 @@ function DailyTaskItem(props) {
     setTask(newTask);
     updateTask(state.currentDate, props.index, newTask);
 
-    setTime(state.currentDate, state.time, dispatch);
+    initDate(state.currentDate, state.time, dispatch);
   }
 
 
