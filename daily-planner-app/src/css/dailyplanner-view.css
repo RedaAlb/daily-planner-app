@@ -33,3 +33,11 @@
   user-select: none;
   width: max-content;
 }
+
+.MuiSpeedDial-root .MuiSpeedDial-fab {
+  background-color: #00407e;
+}
+
+.MuiSpeedDial-root .MuiSpeedDial-fab:hover {
+  background-color: #00407e;
+}

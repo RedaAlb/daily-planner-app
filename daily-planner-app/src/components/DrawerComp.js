@@ -1,4 +1,5 @@
-import React, { useContext, useState } from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { IconButton, Stack } from "@mui/material";
 import { Drawer, Typography } from "@mui/material";
@@ -8,26 +9,24 @@ import Divider from "@mui/material/Divider";
 import ListItem from "@mui/material/ListItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
-import DeleteIcon from '@mui/icons-material/Delete';
+import TodayIcon from '@mui/icons-material/Today';
 import MenuIcon from '@mui/icons-material/Menu';
-
-import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
-
-import { deleteDateData, getDbDateKey } from "../utils/Firebase";
-
-import ConfirmDialog from './ConfirmDialog';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 
 function DrawerComp(props) {
-  const { state } = useContext(dailyplannerContext);
+  const navigate = useNavigate();
 
   const [drawerState, setDrawerState] = useState(false);
-  const [deleteDateDialog, setDeleteDateDialog] = useState(false);
 
 
-  const onDeleteDateConfirm = () => {
-    deleteDateData(state.currentDate);
-    window.location.reload();
+  const onDailyPlannerClick = () => {
+    navigate("/");
+  }
+
+
+  const onSettingsClick = () => {
+    console.log("Settings clicked");
   }
 
 
@@ -43,24 +42,26 @@ function DrawerComp(props) {
         <Box sx={{ width: "left" === "top" || "left" === "bottom" ? "auto" : 250 }} role="presentation">
           <List>
             <ListItem>
-              <Typography variant="h6" noWrap component="div">Actions</Typography>
+              <Typography variant="h6" noWrap component="div">Main</Typography>
             </ListItem>
 
-            <ListItem button onClick={() => setDeleteDateDialog(true)}>
-              <ListItemIcon> <DeleteIcon /> </ListItemIcon>
-              <ListItemText primary="Delete date" />
+            <ListItem button onClick={onDailyPlannerClick}>
+              <ListItemIcon> <TodayIcon /> </ListItemIcon>
+              <ListItemText primary="Daily Planner" />
             </ListItem>
 
-            <ConfirmDialog
-              dialogOpen={deleteDateDialog}
-              setDialogOpen={setDeleteDateDialog}
-              diaTitle="Delete date?"
-              diaText={`All (${getDbDateKey(state.currentDate, "/")}) data will be deleted.`}
-              onConfirmed={onDeleteDateConfirm}
-            />
+            <Divider />
+
+            <ListItem>
+              <Typography variant="h6" noWrap component="div">App</Typography>
+            </ListItem>
+
+            <ListItem button onClick={onSettingsClick}>
+              <ListItemIcon> <SettingsIcon /> </ListItemIcon>
+              <ListItemText primary="Settings" />
+            </ListItem>
+            <Divider />
           </List>
-
-          <Divider />
         </Box>
       </Drawer>
     </>
