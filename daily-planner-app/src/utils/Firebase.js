@@ -1,11 +1,13 @@
 import { initializeApp } from 'firebase/app';
 import * as db from "firebase/database";
 
+import { Capacitor } from '@capacitor/core';
 import { Storage } from '@capacitor/storage';
 import { Geolocation } from '@capacitor/geolocation';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
-import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH } from "./constants";
+import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME } from "./constants";
 
 
 const firebaseConfig = {
@@ -22,6 +24,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const appDb = db.getDatabase(app);
 const dbRef = db.ref(appDb);
+
+const platform = Capacitor.getPlatform();
 
 
 export const loadDate = async (date) => {
@@ -146,4 +150,89 @@ export const updateTime = (date, newTime) => {
   const dateKey = getDbDateKey(date);
 
   db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
+}
+
+
+export const exportDb = async (setExportSnackbar) => {
+  const dbData = await db.get(db.ref(appDb, "/")).then((snapshot) => {
+    if (snapshot.exists()) {
+      const dbData = snapshot.val();
+
+      return dbData;
+    } else {
+      return {}
+    }
+  }).catch((error) => {
+    console.error(error);
+  })
+
+  const dbDataJsonString = JSON.stringify(dbData, null, 2);
+
+  const dt = new Date();
+  const nowDateTimeString =
+    `${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear()}_${dt.getHours()}-${dt.getMinutes()}-${dt.getSeconds()}`
+
+  const fileName = `db_${nowDateTimeString}`;
+
+  await saveDataToFile(fileName, dbDataJsonString);
+
+  if (platform !== "web") {
+    setExportSnackbar(true);
+  }
+}
+
+
+export const saveDataToFile = async (fileName, dataToSave) => {
+  if (platform === "web") {
+    const element = document.createElement("a");
+    const file = new Blob([dataToSave], {
+      type: "text/plain;charset=utf-8"
+    })
+
+    element.href = URL.createObjectURL(file);
+    element.download = fileName;
+    element.click();
+  }
+  else {
+    try {
+      await Filesystem.writeFile({
+        path: `${EXPORTS_DIR_NAME}/${fileName}.txt`,
+        data: dataToSave,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8,
+      })
+
+    } catch (e) {
+      await Filesystem.mkdir({
+        path: `${EXPORTS_DIR_NAME}`,
+        directory: Directory.Documents,
+      })
+      console.log("Directory created in documents");
+
+      // Call function again after creating the directory for the first time to save data.
+      saveDataToFile(fileName, dataToSave);
+    }
+  }
+}
+
+
+export const importDb = (setImportSnackbar) => {
+  const input = document.createElement("input");
+  input.type = "file";
+
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+
+    const reader = new FileReader();
+    reader.readAsText(file, "UTF-8");
+
+    reader.onload = (readerEvent) => {
+      const content = readerEvent.target.result;
+      const json = JSON.parse(content)
+      db.set(db.ref(appDb, "/"), json);
+      setImportSnackbar(true);
+    }
+  }
+
+  input.click();
 }
