@@ -236,3 +236,8 @@ export const importDb = (setImportSnackbar) => {
 
   input.click();
 }
+
+
+export const deleteDb = () => {
+  db.set(db.ref(appDb, "/"), null);
+}
