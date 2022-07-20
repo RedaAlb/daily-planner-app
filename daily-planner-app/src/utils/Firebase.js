@@ -1,8 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import * as db from "firebase/database";
 
+import { Storage } from '@capacitor/storage';
+import { Geolocation } from '@capacitor/geolocation';
+
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
-import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH } from "./constants";
+import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH } from "./constants";
 
 
 const firebaseConfig = {
@@ -102,7 +105,7 @@ export const updateNotes = (date, newNotes) => {
 }
 
 
-export const initDate = (date, time, dispatch) => {
+export const initDate = async (date, time, dispatch) => {
   // Save time if not already saved for that date, and anything else that needs to happen only once when date is first used.
   // This is called on routine, daily big, task, or notes change.
   const dateKey = getDbDateKey(date);
@@ -114,12 +117,27 @@ export const initDate = (date, time, dispatch) => {
     db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
     dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
 
+
     // Add the dateKey to the db, this is used to add dots to the populated dates in the date picker.
     const dateKeysRef = db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`);
     const newDateKeyRef = db.push(dateKeysRef);
 
     db.set(newDateKeyRef, dateKey);
     dispatch({ type: ADD_DATE_KEY, payload: dateKey });
+
+
+    // Save location if location setting is turned on.
+    const { value } = await Storage.get({ key: DATE_SAVE_LOCATION });
+
+    if (value !== null && value !== "false") {
+      const position = await Geolocation.getCurrentPosition();
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      const locationString = `${latitude} ${longitude}`;
+
+      db.set(db.ref(appDb, `${dateKey}/${LOCATION_PATH}/`), locationString);
+    }
   }
 }
 
