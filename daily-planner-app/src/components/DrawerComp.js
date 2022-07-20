@@ -13,6 +13,8 @@ import TodayIcon from '@mui/icons-material/Today';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
 
+import { SETTINGS_VIEW_PATH } from "../utils/constants";
+
 
 function DrawerComp(props) {
   const navigate = useNavigate();
@@ -26,7 +28,7 @@ function DrawerComp(props) {
 
 
   const onSettingsClick = () => {
-    console.log("Settings clicked");
+    navigate(SETTINGS_VIEW_PATH);
   }
 
 

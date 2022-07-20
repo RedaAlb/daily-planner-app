@@ -1,6 +1,11 @@
+// Views path
+export const SETTINGS_VIEW_PATH = "/settings";
+
+
 // Colours
 export const MAIN_COLOUR = "#af8d67";
 export const DATEPICKER_DOT_COLOUR = "#00c182";
+export const SETTINGS_TOPBAR_BG = "#ffffff";
 
 
 // Heights
@@ -8,6 +13,7 @@ export const TOPBAR_HEIGHT = "70px";
 export const TOPBAR_LINE_HEIGHT = "2px";
 export const MAIN_LINE_HEIGHT = "1px";
 export const TASK_ITEM_MIN_HEIGHT = "30px";
+export const SETTING_ITEM_HEIGHT = "64px";
 
 
 // Gaps
@@ -67,3 +73,8 @@ export const TASKS_PATH = "tasks";
 export const NOTES_PATH = "notes";
 export const TIME_PATH = "time";
 export const DATE_KEYS_PATH = "dateKeys";
+export const LOCATION_PATH = "location";
+
+
+// Capacitor storage
+export const DATE_SAVE_LOCATION = "DATE_SAVE_LOCATION";
