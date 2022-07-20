@@ -78,3 +78,4 @@ export const LOCATION_PATH = "location";
 
 // Capacitor storage
 export const DATE_SAVE_LOCATION = "DATE_SAVE_LOCATION";
+export const EXPORTS_DIR_NAME = "dailyplanner_app_exports";
