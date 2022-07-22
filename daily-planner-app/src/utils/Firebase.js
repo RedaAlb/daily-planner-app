@@ -241,3 +241,16 @@ export const importDb = (setImportSnackbar) => {
 export const deleteDb = () => {
   db.set(db.ref(appDb, "/"), null);
 }
+
+
+export const checkConnectionStatus = (setOffline) => {
+  const connRef = db.ref(appDb, ".info/connected");
+
+  db.onValue(connRef, (snapshot) => {
+    if (snapshot.val() === true) {
+      setOffline(false);
+    } else {
+      setOffline(true);
+    }
+  })
+}
