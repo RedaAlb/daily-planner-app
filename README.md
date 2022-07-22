@@ -5,7 +5,14 @@ A daily planner app using React web with Capacitor for native mobile platforms.
 I initially created this daily planner in [paper format](paper_version.png), which I used for over 2 years, so I decided to make this app to go paperless.
 
 
-# To build/deploy as a "native" app using Capacitor
+# Demo
+
+Please note that for the demo, there is no data persistence since Firebase will not be setup for the demo. When creating the app for yourself, please follow instructions below on how to get Firebase setup for data persistence.
+
+[Demo](https://redaalb.github.io/daily-planner-app/)
+
+
+# To build/deploy as a "native" app using Capacitor with Firebase
 
 ## Install node modules
 ```
