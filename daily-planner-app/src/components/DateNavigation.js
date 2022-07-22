@@ -20,7 +20,6 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
 import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-actions";
 
-import { deleteDateData, getDbDateKey, updateTime } from "../utils/Firebase";
 import { DATEPICKER_DOT_COLOUR } from "../utils/constants";
 
 import ConfirmDialog from './ConfirmDialog';
@@ -43,11 +42,6 @@ function DateNavigation(props) {
 
   const onDateChange = (date) => {
     dispatch({ type: SET_DATE, payload: date });
-
-    // Only save date time if date is already populated, i.e. if time created already exists.
-    if (state.time !== "") {
-      updateTime(currentDate, `${date.getHours()}:${date.getMinutes()}`);
-    }
   }
 
 
@@ -80,8 +74,6 @@ function DateNavigation(props) {
 
 
   const onDeleteDateConfirm = () => {
-    deleteDateData(state.currentDate);
-    window.location.reload();
   }
 
 
@@ -112,8 +104,7 @@ function DateNavigation(props) {
             <TextField fullWidth  {...params} />
           }
           renderDay={(date, _value, DayComponentProps) => {
-            const dateIsPopulated = state.dateKeys.includes(getDbDateKey(date));
-            const isMarked = !DayComponentProps.outsideCurrentMonth && dateIsPopulated;
+            const isMarked = !DayComponentProps.outsideCurrentMonth && false;
 
             return (
               <Badge
@@ -171,7 +162,7 @@ function DateNavigation(props) {
         dialogOpen={deleteDateDialog}
         setDialogOpen={setDeleteDateDialog}
         diaTitle="Delete date?"
-        diaText={`All (${getDbDateKey(state.currentDate, "/")}) data will be deleted.`}
+        diaText={`All (${state.currentDate.getDate()}/${state.currentDate.getMonth() + 1}/${state.currentDate.getFullYear()}) data will be deleted.`}
         onConfirmed={onDeleteDateConfirm}
       />
     </>

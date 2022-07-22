@@ -1,18 +1,13 @@
-import React, { memo, useContext, useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 
 import { Checkbox } from "@mui/material";
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
-import dailyplannerContext from "./context/dailyplanner-context";
-
-import { initDate, updateDailyBig } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/constants";
 
 
 function DailyBigItem(props) {
-  const { state, dispatch } = useContext(dailyplannerContext);
-
   const [dailyBig, setDailyBig] = useState(props.dailyBig);
 
 
@@ -21,7 +16,6 @@ function DailyBigItem(props) {
 
     const newDailyBig = { ...dailyBig, checked: checkValue };
     setDailyBig(newDailyBig);
-    updateDailyBig(state.currentDate, props.index, newDailyBig);
   }
 
 
@@ -30,9 +24,6 @@ function DailyBigItem(props) {
 
     const newDailyBig = { ...dailyBig, text: textboxValue }
     setDailyBig(newDailyBig);
-    updateDailyBig(state.currentDate, props.index, newDailyBig);
-
-    initDate(state.currentDate, state.time, dispatch);
   }
 
 

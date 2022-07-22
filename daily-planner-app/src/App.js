@@ -7,7 +7,7 @@ import SettingsView from "./views/settings_view/SettingsView";
 
 function App() {
   return (
-    <Router>
+    <Router basename={process.env.PUBLIC_URL}>
       <Routes>
         <Route path="/" element={<DailyPlannerView />} />
         <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />

@@ -1,18 +1,13 @@
-import React, { memo, useContext, useEffect, useState } from "react";
+import React, { memo, useEffect, useState } from "react";
 
 import { Checkbox, TextareaAutosize } from "@mui/material";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
-import dailyplannerContext from "./context/dailyplanner-context";
-
-import { initDate, updateTask } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
 
 
 function DailyTaskItem(props) {
-  const { state, dispatch } = useContext(dailyplannerContext);
-
   const [task, setTask] = useState(props.task);
 
 
@@ -21,7 +16,6 @@ function DailyTaskItem(props) {
 
     const newTask = { ...task, checked: checkValue };
     setTask(newTask);
-    updateTask(state.currentDate, props.index, newTask);
   }
 
 
@@ -30,9 +24,6 @@ function DailyTaskItem(props) {
 
     const newTask = { ...task, text: textboxValue };
     setTask(newTask);
-    updateTask(state.currentDate, props.index, newTask);
-
-    initDate(state.currentDate, state.time, dispatch);
   }
 
 

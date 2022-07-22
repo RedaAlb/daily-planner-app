@@ -6,7 +6,6 @@ import SaveIcon from '@mui/icons-material/Save';
 import FolderDeleteIcon from '@mui/icons-material/FolderDelete';
 import WarningIcon from '@mui/icons-material/Warning';
 
-import { deleteDb, exportDb, importDb } from "../../utils/Firebase";
 import { DATE_SAVE_LOCATION, EXPORTS_DIR_NAME } from "../../utils/constants";
 
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -25,18 +24,14 @@ function SettingsView(props) {
 
 
   const onExportClick = () => {
-    exportDb(setExportSnackbar);
   }
 
 
   const onImportClick = () => {
-    importDb(setImportSnackbar);
   }
 
 
   const onDelAllDataConfirmed = () => {
-    deleteDb();
-
     setDeleteAllDataDiaOpen(false);
     setDelDataSnackbar(true);
   }
