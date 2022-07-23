@@ -1,13 +1,22 @@
 import React, { memo, useContext, useEffect, useState } from "react";
 
-import { Checkbox } from "@mui/material";
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import EastIcon from '@mui/icons-material/East';
 
 import dailyplannerContext from "./context/dailyplanner-context";
 
 import { initDate, updateDailyBig } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/constants";
+
+import Tickbox from "../../components/Tickbox";
+
+
+const tickIcons = [
+  <RadioButtonUncheckedIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+  <CheckCircleIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+  <EastIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+]
 
 
 function DailyBigItem(props) {
@@ -16,10 +25,9 @@ function DailyBigItem(props) {
   const [dailyBig, setDailyBig] = useState(props.dailyBig);
 
 
-  const onCheckChange = (event) => {
-    const checkValue = event.target.checked;
+  const onTickClick = (checkIndex) => {
+    const newDailyBig = { ...dailyBig, checkIndex: checkIndex };
 
-    const newDailyBig = { ...dailyBig, checked: checkValue };
     setDailyBig(newDailyBig);
     updateDailyBig(state.currentDate, props.index, newDailyBig);
   }
@@ -27,8 +35,8 @@ function DailyBigItem(props) {
 
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
-
     const newDailyBig = { ...dailyBig, text: textboxValue }
+
     setDailyBig(newDailyBig);
     updateDailyBig(state.currentDate, props.index, newDailyBig);
 
@@ -49,12 +57,12 @@ function DailyBigItem(props) {
         borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`
       }}
     >
-      <Checkbox
-        checked={dailyBig.checked}
-        onChange={onCheckChange}
-        icon={<RadioButtonUncheckedIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
-        checkedIcon={<CheckCircleIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
-        sx={{ padding: 0, fontSize: "42px" }}
+
+      <Tickbox
+        checkIndex={dailyBig.checkIndex}
+        icons={tickIcons}
+        onClick={onTickClick}
+        style={{ padding: 0, fontSize: "42px" }}
       />
 
       <textarea

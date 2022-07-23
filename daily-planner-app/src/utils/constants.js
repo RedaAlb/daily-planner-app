@@ -36,11 +36,11 @@ export const ROUTINE_OBJ = {
   checked: false
 }
 export const DAILY_BIG_OBJ = {
-  checked: false,
+  checkIndex: 0,
   text: ""
 }
 export const TASK_OBJ = {
-  checked: false,
+  checkIndex: 0,
   text: ""
 }
 
