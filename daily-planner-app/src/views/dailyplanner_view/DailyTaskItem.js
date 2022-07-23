@@ -1,13 +1,23 @@
 import React, { memo, useContext, useEffect, useState } from "react";
 
-import { Checkbox, TextareaAutosize } from "@mui/material";
+import { TextareaAutosize } from "@mui/material";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import EastIcon from '@mui/icons-material/East';
 
 import dailyplannerContext from "./context/dailyplanner-context";
 
 import { initDate, updateTask } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
+
+import Tickbox from "../../components/Tickbox";
+
+
+const tickIcons = [
+  <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+  <CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+  <EastIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />,
+]
 
 
 function DailyTaskItem(props) {
@@ -16,10 +26,9 @@ function DailyTaskItem(props) {
   const [task, setTask] = useState(props.task);
 
 
-  const onCheckChange = (event) => {
-    const checkValue = event.target.checked;
+  const onTickClick = (checkIndex) => {
+    const newTask = { ...task, checkIndex: checkIndex };
 
-    const newTask = { ...task, checked: checkValue };
     setTask(newTask);
     updateTask(state.currentDate, props.index, newTask);
   }
@@ -27,8 +36,8 @@ function DailyTaskItem(props) {
 
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
-
     const newTask = { ...task, text: textboxValue };
+
     setTask(newTask);
     updateTask(state.currentDate, props.index, newTask);
 
@@ -50,12 +59,12 @@ function DailyTaskItem(props) {
         minHeight: TASK_ITEM_MIN_HEIGHT
       }}
     >
-      <Checkbox
-        checked={task.checked}
-        onChange={onCheckChange}
-        icon={<CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
-        checkedIcon={<CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
-        sx={{ padding: 0, fontSize: "30px" }}
+
+      <Tickbox
+        checkIndex={task.checkIndex}
+        icons={tickIcons}
+        onClick={onTickClick}
+        style={{ padding: 0, fontSize: "30px" }}
       />
 
       <TextareaAutosize
