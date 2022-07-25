@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/daily-planner-app/static/css/main.206aa269.css",
-    "main.js": "/daily-planner-app/static/js/main.972d3ecc.js",
+    "main.js": "/daily-planner-app/static/js/main.9b27ba0e.js",
     "static/js/858.f426c16c.chunk.js": "/daily-planner-app/static/js/858.f426c16c.chunk.js",
     "index.html": "/daily-planner-app/index.html",
     "main.206aa269.css.map": "/daily-planner-app/static/css/main.206aa269.css.map",
-    "main.972d3ecc.js.map": "/daily-planner-app/static/js/main.972d3ecc.js.map",
+    "main.9b27ba0e.js.map": "/daily-planner-app/static/js/main.9b27ba0e.js.map",
     "858.f426c16c.chunk.js.map": "/daily-planner-app/static/js/858.f426c16c.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.206aa269.css",
-    "static/js/main.972d3ecc.js"
+    "static/js/main.9b27ba0e.js"
   ]
 }
