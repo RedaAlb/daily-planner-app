@@ -4,6 +4,7 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { MobileDateTimePicker } from '@mui/x-date-pickers/MobileDateTimePicker';
 import { PickersDay } from "@mui/x-date-pickers";
+import gbLocale from "date-fns/locale/en-GB";
 
 import { Badge, Fab } from "@mui/material";
 import TextField from '@mui/material/TextField';
@@ -101,7 +102,7 @@ function DateNavigation(props) {
 
   return (
     <>
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
+      <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={gbLocale}>
         <MobileDateTimePicker
           label=""
           inputFormat={"dd MMMM yyyy | EEEE" + (state.time !== '' ? " HH:mm" : "")}
