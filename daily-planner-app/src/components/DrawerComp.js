@@ -12,8 +12,9 @@ import ListItemText from "@mui/material/ListItemText";
 import TodayIcon from '@mui/icons-material/Today';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
-import { SETTINGS_VIEW_PATH } from "../utils/constants";
+import { GLOBAL_TASKS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
 
 
 function DrawerComp(props) {
@@ -24,6 +25,11 @@ function DrawerComp(props) {
 
   const onDailyPlannerClick = () => {
     navigate("/");
+  }
+
+
+  const onGlobalClick = () => {
+    navigate(GLOBAL_TASKS_VIEW_PATH);
   }
 
 
@@ -50,6 +56,11 @@ function DrawerComp(props) {
             <ListItem button onClick={onDailyPlannerClick}>
               <ListItemIcon> <TodayIcon /> </ListItemIcon>
               <ListItemText primary="Daily Planner" />
+            </ListItem>
+
+            <ListItem button onClick={onGlobalClick}>
+              <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
+              <ListItemText primary="Global Tasks" />
             </ListItem>
 
             <Divider />

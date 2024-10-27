@@ -4,8 +4,9 @@ import { DEFAULT_VERT_GAP } from "../../utils/constants";
 
 
 function DailyQuote(props) {
-  const quote = "All you have to do everyday, is to simply tick off tasks, as there is nothing that you cannot do just by simply doing it.";
-  const author = "";
+  // const quote = "All you have to do everyday, is to simply tick off tasks, as there is nothing that you cannot do just by simply doing it.";
+  const quote = "The happiness of your life depends upon the quality of your thoughts.";
+  const author = "Marcus Aurelius";
 
 
   return (
