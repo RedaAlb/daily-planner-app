@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   List,
   ListItem,
@@ -14,19 +14,38 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import DragHandleIcon from "@mui/icons-material/DragHandle";
-import { DEFAULT_HORI_GAP, MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../utils/constants";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
+import {
+  DEFAULT_HORI_GAP,
+  MAIN_COLOUR,
+  MAIN_LINE_HEIGHT,
+  SECONDARY_FONT_SIZE,
+  TASK_ITEM_MIN_HEIGHT
+} from "../utils/constants";
 
-const OrderedList = () => {
-  const [items, setItems] = useState([
+const fetchItemsFromDatabase = async () => {
+  return [
     { id: "1", text: "Item 1", checked: false, order: 0 },
     { id: "2", text: "Item 2", checked: false, order: 1 },
     { id: "3", text: "Item 3", checked: false, order: 2 },
-  ]);
+  ];
+};
+
+
+const updateItemOrderInDatabase = async (updatedItems) => {
+
+};
+
+const OrderedList = () => {
+  const [items, setItems] = useState([]);
 
   const [archivedItems, setArchivedItems] = useState([]);
+
+  useEffect(() => {
+    fetchItemsFromDatabase().then(fetchedItems => setItems(fetchedItems));
+  }, []);
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
@@ -36,20 +55,59 @@ const OrderedList = () => {
     newItems.splice(result.destination.index, 0, movedItem);
 
     setItems(newItems);
+    updateItemOrderInDatabase(newItems);
   };
 
   const moveToTop = (index) => {
     const newItems = [...items];
     const [movedItem] = newItems.splice(index, 1);
     newItems.unshift(movedItem);
+
+    // Update order values
+    newItems.forEach((item, i) => item.order = i);
     setItems(newItems);
+    updateItemOrderInDatabase(newItems);
   };
 
   const moveToBottom = (index) => {
     const newItems = [...items];
     const [movedItem] = newItems.splice(index, 1);
-    newItems.push(movedItem);
+
+    const uncheckedItems = newItems.filter(item => !item.checked);
+    const checkedItems = newItems.filter(item => item.checked);
+    checkedItems.unshift(movedItem);
+
+    const updatedItems = [...uncheckedItems, ...checkedItems];
+    updatedItems.forEach((item, i) => item.order = i);
+    setItems(updatedItems);
+    updateItemOrderInDatabase(updatedItems);
+  };
+
+  const onAddTask = () => {
+    const newItem = {
+      id: `${Date.now()}`,
+      text: "",
+      checked: false,
+      order: 0,
+    };
+
+    const updatedItems = [newItem, ...items.map(item => ({ ...item, order: item.order + 1 }))];
+    setItems(updatedItems);
+    updateItemOrderInDatabase(updatedItems);
+  };
+
+  const toggleCheckbox = (index) => {
+    const newItems = [...items];
+    newItems[index].checked = !newItems[index].checked;
     setItems(newItems);
+    updateItemOrderInDatabase(newItems);
+  };
+
+  const handleTextChange = (index, value) => {
+    const newItems = [...items];
+    newItems[index].text = value;
+    setItems(newItems);
+    // Save text change to the database as well
   };
 
   const archiveItem = (index) => {
@@ -57,26 +115,11 @@ const OrderedList = () => {
     const [archivedItem] = newItems.splice(index, 1);
     setArchivedItems([...archivedItems, archivedItem]);
     setItems(newItems);
+    // Save to database as well.
   };
 
-  const onAddTask = () => {
-    console.log("Adds new task.")
-  }
-
-  const toggleCheckbox = (index) => {
-    const newItems = [...items];
-    newItems[index].checked = !newItems[index].checked;
-    setItems(newItems);
-  };
-
-  const handleTextChange = (index, value) => {
-    const newItems = [...items];
-    newItems[index].text = value;
-    setItems(newItems);
-  };
-
-  const notCheckedIcon = <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />
-  const checkedIcon = <CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />
+  const notCheckedIcon = <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
+  const checkedIcon = <CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
 
   return (
     <Box>
@@ -168,7 +211,7 @@ const OrderedList = () => {
       >
         <AddIcon fontSize="medium" />
       </Fab>
-    </Box >
+    </Box>
   );
 };
 
