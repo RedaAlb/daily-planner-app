@@ -44,7 +44,6 @@ import { appDb } from "../utils/Firebase";
 
 const OrderedList = () => {
   const [items, setItems] = useState([]);
-  // eslint-disable-next-line
   const [archivedItems, setArchivedItems] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
@@ -255,17 +254,31 @@ const OrderedList = () => {
                           }}
                         />
 
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                          <IconButton edge="end" onClick={() => moveToTop(index)} title="Move to top">
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                          }}
+                        >
+                          <IconButton edge="end" onClick={() => moveToTop(index)}>
                             <ArrowUpwardIcon />
                           </IconButton>
-                          <IconButton edge="end" onClick={() => moveToBottom(index)} title="Move to bottom">
+                          <IconButton edge="end" onClick={() => moveToBottom(index)}>
                             <ArrowDownwardIcon />
                           </IconButton>
-                          <IconButton edge="end" onClick={() => archiveItem(index)} sx={{ marginLeft: "10px" }} title="Archive">
+                          <IconButton
+                            edge="end"
+                            onClick={() => archiveItem(index)}
+                            sx={{ marginLeft: "10px" }}
+                          >
                             <ArchiveIcon />
                           </IconButton>
-                          <IconButton edge="end" onClick={() => openDeleteDialog(index)} sx={{ marginLeft: "10px" }} title="Delete">
+                          <IconButton
+                            edge="end"
+                            onClick={() => openDeleteDialog(index)}
+                            sx={{ marginLeft: "10px" }}
+                          >
                             <DeleteIcon />
                           </IconButton>
                         </Box>
@@ -295,19 +308,20 @@ const OrderedList = () => {
         onClose={closeDeleteDialog}
       >
         <DialogTitle id="delete-dialog-title">
-          Confirm deletion
+          Confirm Deletion
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-dialog-description">
-            Delete task: {itemToDelete?.text}
+            Are you sure you want to delete the task:{' '}
+            <strong>{itemToDelete?.text}</strong>?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDeleteDialog} color="primary">
             Cancel
           </Button>
-          <Button onClick={confirmDelete} autoFocus color="error">
-            Delete
+          <Button onClick={confirmDelete} autoFocus>
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>

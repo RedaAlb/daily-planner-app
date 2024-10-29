@@ -24,6 +24,8 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import {
   ref,
   set,
@@ -41,20 +43,17 @@ import {
 } from "../utils/constants";
 import { appDb } from "../utils/Firebase";
 
-
 const OrderedList = () => {
   const [items, setItems] = useState([]);
-  // eslint-disable-next-line
   const [archivedItems, setArchivedItems] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
 
   useEffect(() => {
-    // Set up real-time listeners
     const tasksRef = ref(appDb, 'global_tasks');
     const archivedTasksRef = ref(appDb, 'archived_global_tasks');
 
-    // Listen for tasks updates
     const tasksListener = onValue(tasksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -68,7 +67,6 @@ const OrderedList = () => {
       }
     });
 
-    // Listen for archived tasks updates
     const archivedListener = onValue(archivedTasksRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
@@ -82,7 +80,6 @@ const OrderedList = () => {
       }
     });
 
-    // Cleanup listeners on component unmount
     return () => {
       off(tasksRef, 'value', tasksListener);
       off(archivedTasksRef, 'value', archivedListener);
@@ -107,7 +104,23 @@ const OrderedList = () => {
     const [movedItem] = newItems.splice(result.source.index, 1);
     newItems.splice(result.destination.index, 0, movedItem);
 
-    await updateItemsInDatabase(newItems);
+    // Update group membership based on position
+    const updatedItems = newItems.map((item, index) => {
+      if (item.type === 'task') {
+        let groupId = null;
+        // Look backward for the nearest group
+        for (let i = index - 1; i >= 0; i--) {
+          if (newItems[i].type === 'group') {
+            groupId = newItems[i].id;
+            break;
+          }
+        }
+        return { ...item, groupId };
+      }
+      return item;
+    });
+
+    await updateItemsInDatabase(updatedItems);
   };
 
   const moveToTop = async (index) => {
@@ -121,27 +134,45 @@ const OrderedList = () => {
   const moveToBottom = async (index) => {
     const newItems = [...items];
     const [movedItem] = newItems.splice(index, 1);
+    newItems.push(movedItem);
 
-    const uncheckedItems = newItems.filter(item => !item.checked);
-    const checkedItems = newItems.filter(item => item.checked);
-    checkedItems.unshift(movedItem);
-
-    const updatedItems = [...uncheckedItems, ...checkedItems];
-    await updateItemsInDatabase(updatedItems);
+    await updateItemsInDatabase(newItems);
   };
 
   const onAddTask = async () => {
-    const newItemId = `${Date.now()}`;
+    const newItemId = `task_${Date.now()}`;
     const newItem = {
       id: newItemId,
       text: "",
       checked: false,
       order: 0,
+      type: 'task',
       createdAt: Date.now()
     };
 
     const updatedItems = [newItem, ...items.map(item => ({ ...item, order: item.order + 1 }))];
     await updateItemsInDatabase(updatedItems);
+  };
+
+  const onAddGroup = async () => {
+    const newGroupId = `group_${Date.now()}`;
+    const newGroup = {
+      id: newGroupId,
+      text: "New Group",
+      order: items.length,
+      type: 'group',
+      createdAt: Date.now()
+    };
+
+    const updatedItems = [...items, newGroup];
+    await updateItemsInDatabase(updatedItems);
+  };
+
+  const toggleGroup = (groupId) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupId]: !prev[groupId]
+    }));
   };
 
   const toggleCheckbox = async (index) => {
@@ -187,7 +218,7 @@ const OrderedList = () => {
 
   const closeDeleteDialog = () => {
     setDeleteDialogOpen(false);
-    // setItemToDelete(null);
+    setItemToDelete(null);
   };
 
   const confirmDelete = async () => {
@@ -202,8 +233,127 @@ const OrderedList = () => {
     closeDeleteDialog();
   };
 
-  const notCheckedIcon = <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
-  const checkedIcon = <CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
+  const renderItem = (item, index, provided) => {
+    if (item.type === 'group') {
+      return (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
+            minHeight: TASK_ITEM_MIN_HEIGHT,
+            width: "-webkit-fill-available",
+            paddingLeft: "10px",
+            paddingRight: DEFAULT_HORI_GAP,
+            backgroundColor: "#f5f5f5"
+          }}
+        >
+          <ListItemIcon
+            {...provided.dragHandleProps}
+            sx={{ cursor: "grab", minWidth: "auto", paddingRight: "5px" }}
+          >
+            <DragHandleIcon />
+          </ListItemIcon>
+
+          <IconButton
+            onClick={() => toggleGroup(item.id)}
+            size="small"
+          >
+            {collapsedGroups[item.id] ? <ExpandMoreIcon /> : <ExpandLessIcon />}
+          </IconButton>
+
+          <TextareaAutosize
+            value={item.text}
+            onChange={(e) => handleTextChange(index, e.target.value)}
+            style={{
+              width: "100%",
+              overflow: "hidden",
+              fontSize: SECONDARY_FONT_SIZE,
+              fontWeight: "bold",
+              backgroundColor: "transparent"
+            }}
+          />
+
+          <IconButton
+            edge="end"
+            onClick={() => openDeleteDialog(index)}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </div>
+      );
+    }
+
+    // Regular task item
+    const isInGroup = item.groupId != null;
+    const isGroupCollapsed = item.groupId && collapsedGroups[item.groupId];
+
+    if (isGroupCollapsed) {
+      return null;
+    }
+
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
+          minHeight: TASK_ITEM_MIN_HEIGHT,
+          width: "-webkit-fill-available",
+          paddingLeft: isInGroup ? "40px" : "10px",
+          paddingRight: DEFAULT_HORI_GAP,
+        }}
+      >
+        <ListItemIcon
+          {...provided.dragHandleProps}
+          sx={{ cursor: "grab", minWidth: "auto", paddingRight: "5px" }}
+        >
+          <DragHandleIcon />
+        </ListItemIcon>
+
+        <Checkbox
+          checked={item.checked}
+          onClick={() => toggleCheckbox(index)}
+          icon={<CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
+          checkedIcon={<CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />}
+          sx={{ padding: 0, fontSize: "30px" }}
+        />
+
+        <TextareaAutosize
+          value={item.text}
+          onChange={(e) => handleTextChange(index, e.target.value)}
+          style={{
+            width: "100%",
+            overflow: "hidden",
+            fontSize: SECONDARY_FONT_SIZE
+          }}
+        />
+
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+          <IconButton edge="end" onClick={() => moveToTop(index)}>
+            <ArrowUpwardIcon />
+          </IconButton>
+          <IconButton edge="end" onClick={() => moveToBottom(index)}>
+            <ArrowDownwardIcon />
+          </IconButton>
+          <IconButton
+            edge="end"
+            onClick={() => archiveItem(index)}
+            sx={{ marginLeft: "10px" }}
+          >
+            <ArchiveIcon />
+          </IconButton>
+          <IconButton
+            edge="end"
+            onClick={() => openDeleteDialog(index)}
+            sx={{ marginLeft: "10px" }}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Box>
+      </div>
+    );
+  };
 
   return (
     <Box>
@@ -219,57 +369,7 @@ const OrderedList = () => {
                       {...provided.draggableProps}
                       sx={{ display: "flex", alignItems: "center", padding: 0, background: "white" }}
                     >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
-                          minHeight: TASK_ITEM_MIN_HEIGHT,
-                          width: "-webkit-fill-available",
-                          paddingLeft: "10px",
-                          paddingRight: DEFAULT_HORI_GAP,
-                        }}
-                      >
-                        <ListItemIcon
-                          {...provided.dragHandleProps}
-                          sx={{ cursor: "grab", minWidth: "auto", paddingRight: "5px" }}
-                        >
-                          <DragHandleIcon />
-                        </ListItemIcon>
-
-                        <Checkbox
-                          checked={item.checked}
-                          onClick={() => toggleCheckbox(index)}
-                          icon={notCheckedIcon}
-                          checkedIcon={checkedIcon}
-                          sx={{ padding: 0, fontSize: "30px" }}
-                        />
-
-                        <TextareaAutosize
-                          value={item.text}
-                          onChange={(e) => handleTextChange(index, e.target.value)}
-                          style={{
-                            width: "100%",
-                            overflow: "hidden",
-                            fontSize: SECONDARY_FONT_SIZE
-                          }}
-                        />
-
-                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-                          <IconButton edge="end" onClick={() => moveToTop(index)} title="Move to top">
-                            <ArrowUpwardIcon />
-                          </IconButton>
-                          <IconButton edge="end" onClick={() => moveToBottom(index)} title="Move to bottom">
-                            <ArrowDownwardIcon />
-                          </IconButton>
-                          <IconButton edge="end" onClick={() => archiveItem(index)} sx={{ marginLeft: "10px" }} title="Archive">
-                            <ArchiveIcon />
-                          </IconButton>
-                          <IconButton edge="end" onClick={() => openDeleteDialog(index)} sx={{ marginLeft: "10px" }} title="Delete">
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      </div>
+                      {renderItem(item, index, provided)}
                     </ListItem>
                   )}
                 </Draggable>
@@ -280,34 +380,45 @@ const OrderedList = () => {
         </Droppable>
       </DragDropContext>
 
-      <Fab
-        onClick={onAddTask}
-        color="primary"
-        size="large"
-        sx={{ position: "fixed", bottom: 26, right: 26 }}
-      >
-        <AddIcon fontSize="medium" />
-      </Fab>
+      <Box sx={{ position: "fixed", bottom: 26, right: 26, display: "flex", flexDirection: "column", gap: 2 }}>
+        <Fab
+          onClick={onAddGroup}
+          color="secondary"
+          size="large"
+        >
+          <AddIcon fontSize="medium" />
+        </Fab>
+        <Fab
+          onClick={onAddTask}
+          color="primary"
+          size="large"
+        >
+          <AddIcon fontSize="medium" />
+        </Fab>
+      </Box>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={closeDeleteDialog}
       >
-        <DialogTitle id="delete-dialog-title">
-          Confirm deletion
+        <DialogTitle>
+          Confirm Deletion
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="delete-dialog-description">
-            Delete task: {itemToDelete?.text}
+          <DialogContentText>
+            Are you sure you want to delete this {itemToDelete?.type === 'group' ? 'group' : 'task'}:{' '}
+            <strong>{itemToDelete?.text}</strong>?
+            {itemToDelete?.type === 'group' && (
+              <p>Note: This will not delete the tasks within the group.</p>
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDeleteDialog} color="primary">
             Cancel
           </Button>
-          <Button onClick={confirmDelete} autoFocus color="error">
-            Delete
+          <Button onClick={confirmDelete} autoFocus>
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>
