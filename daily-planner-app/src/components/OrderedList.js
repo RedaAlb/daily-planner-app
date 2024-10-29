@@ -8,15 +8,30 @@ import {
   TextareaAutosize,
   Checkbox,
   Fab,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArchiveIcon from "@mui/icons-material/Archive";
+import DeleteIcon from "@mui/icons-material/Delete";
 import DragHandleIcon from "@mui/icons-material/DragHandle";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
+import {
+  ref,
+  set,
+  remove,
+  onValue,
+  off,
+  update
+} from 'firebase/database';
 import {
   DEFAULT_HORI_GAP,
   MAIN_COLOUR,
@@ -24,52 +39,86 @@ import {
   SECONDARY_FONT_SIZE,
   TASK_ITEM_MIN_HEIGHT
 } from "../utils/constants";
+import { appDb } from "../utils/Firebase";
 
-const fetchItemsFromDatabase = async () => {
-  return [
-    { id: "1", text: "Item 1", checked: false, order: 0 },
-    { id: "2", text: "Item 2", checked: false, order: 1 },
-    { id: "3", text: "Item 3", checked: false, order: 2 },
-  ];
-};
-
-
-const updateItemOrderInDatabase = async (updatedItems) => {
-
-};
 
 const OrderedList = () => {
   const [items, setItems] = useState([]);
-
+  // eslint-disable-next-line
   const [archivedItems, setArchivedItems] = useState([]);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
 
   useEffect(() => {
-    fetchItemsFromDatabase().then(fetchedItems => setItems(fetchedItems));
+    // Set up real-time listeners
+    const tasksRef = ref(appDb, 'global_tasks');
+    const archivedTasksRef = ref(appDb, 'archived_global_tasks');
+
+    // Listen for tasks updates
+    const tasksListener = onValue(tasksRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const taskArray = Object.entries(data).map(([id, value]) => ({
+          id,
+          ...value
+        })).sort((a, b) => a.order - b.order);
+        setItems(taskArray);
+      } else {
+        setItems([]);
+      }
+    });
+
+    // Listen for archived tasks updates
+    const archivedListener = onValue(archivedTasksRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const archivedArray = Object.entries(data).map(([id, value]) => ({
+          id,
+          ...value
+        })).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+        setArchivedItems(archivedArray);
+      } else {
+        setArchivedItems([]);
+      }
+    });
+
+    // Cleanup listeners on component unmount
+    return () => {
+      off(tasksRef, 'value', tasksListener);
+      off(archivedTasksRef, 'value', archivedListener);
+    };
   }, []);
 
-  const handleDragEnd = (result) => {
+  const updateItemsInDatabase = async (updatedItems) => {
+    const updates = {};
+    updatedItems.forEach((item, index) => {
+      updates[`global_tasks/${item.id}`] = {
+        ...item,
+        order: index
+      };
+    });
+    await update(ref(appDb), updates);
+  };
+
+  const handleDragEnd = async (result) => {
     if (!result.destination) return;
 
     const newItems = Array.from(items);
     const [movedItem] = newItems.splice(result.source.index, 1);
     newItems.splice(result.destination.index, 0, movedItem);
 
-    setItems(newItems);
-    updateItemOrderInDatabase(newItems);
+    await updateItemsInDatabase(newItems);
   };
 
-  const moveToTop = (index) => {
+  const moveToTop = async (index) => {
     const newItems = [...items];
     const [movedItem] = newItems.splice(index, 1);
     newItems.unshift(movedItem);
 
-    // Update order values
-    newItems.forEach((item, i) => item.order = i);
-    setItems(newItems);
-    updateItemOrderInDatabase(newItems);
+    await updateItemsInDatabase(newItems);
   };
 
-  const moveToBottom = (index) => {
+  const moveToBottom = async (index) => {
     const newItems = [...items];
     const [movedItem] = newItems.splice(index, 1);
 
@@ -78,44 +127,79 @@ const OrderedList = () => {
     checkedItems.unshift(movedItem);
 
     const updatedItems = [...uncheckedItems, ...checkedItems];
-    updatedItems.forEach((item, i) => item.order = i);
-    setItems(updatedItems);
-    updateItemOrderInDatabase(updatedItems);
+    await updateItemsInDatabase(updatedItems);
   };
 
-  const onAddTask = () => {
+  const onAddTask = async () => {
+    const newItemId = `${Date.now()}`;
     const newItem = {
-      id: `${Date.now()}`,
+      id: newItemId,
       text: "",
       checked: false,
       order: 0,
+      createdAt: Date.now()
     };
 
     const updatedItems = [newItem, ...items.map(item => ({ ...item, order: item.order + 1 }))];
-    setItems(updatedItems);
-    updateItemOrderInDatabase(updatedItems);
+    await updateItemsInDatabase(updatedItems);
   };
 
-  const toggleCheckbox = (index) => {
-    const newItems = [...items];
-    newItems[index].checked = !newItems[index].checked;
-    setItems(newItems);
-    updateItemOrderInDatabase(newItems);
+  const toggleCheckbox = async (index) => {
+    const updatedItem = {
+      ...items[index],
+      checked: !items[index].checked
+    };
+
+    await set(ref(appDb, `global_tasks/${items[index].id}`), updatedItem);
   };
 
-  const handleTextChange = (index, value) => {
-    const newItems = [...items];
-    newItems[index].text = value;
-    setItems(newItems);
-    // Save text change to the database as well
+  const handleTextChange = async (index, value) => {
+    const updatedItem = {
+      ...items[index],
+      text: value
+    };
+
+    await set(ref(appDb, `global_tasks/${items[index].id}`), updatedItem);
   };
 
-  const archiveItem = (index) => {
-    const newItems = [...items];
-    const [archivedItem] = newItems.splice(index, 1);
-    setArchivedItems([...archivedItems, archivedItem]);
-    setItems(newItems);
-    // Save to database as well.
+  const archiveItem = async (index) => {
+    const itemToArchive = items[index];
+    const archivedItem = {
+      ...itemToArchive,
+      archivedAt: Date.now()
+    };
+
+    // Add to archived tasks
+    await set(ref(appDb, `archived_global_tasks/${itemToArchive.id}`), archivedItem);
+
+    // Remove from active tasks
+    await remove(ref(appDb, `global_tasks/${itemToArchive.id}`));
+
+    // Update order of remaining items
+    const remainingItems = items.filter((_, i) => i !== index);
+    await updateItemsInDatabase(remainingItems);
+  };
+
+  const openDeleteDialog = (index) => {
+    setItemToDelete({ index, ...items[index] });
+    setDeleteDialogOpen(true);
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    // setItemToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete) {
+      // Remove from database
+      await remove(ref(appDb, `global_tasks/${itemToDelete.id}`));
+
+      // Update order of remaining items
+      const remainingItems = items.filter((_, i) => i !== itemToDelete.index);
+      await updateItemsInDatabase(remainingItems);
+    }
+    closeDeleteDialog();
   };
 
   const notCheckedIcon = <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
@@ -171,25 +255,18 @@ const OrderedList = () => {
                           }}
                         />
 
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                          }}
-                        >
-                          <IconButton edge="end" onClick={() => moveToTop(index)}>
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+                          <IconButton edge="end" onClick={() => moveToTop(index)} title="Move to top">
                             <ArrowUpwardIcon />
                           </IconButton>
-                          <IconButton edge="end" onClick={() => moveToBottom(index)}>
+                          <IconButton edge="end" onClick={() => moveToBottom(index)} title="Move to bottom">
                             <ArrowDownwardIcon />
                           </IconButton>
-                          <IconButton
-                            edge="end"
-                            onClick={() => archiveItem(index)}
-                            sx={{ marginLeft: "10px" }}
-                          >
+                          <IconButton edge="end" onClick={() => archiveItem(index)} sx={{ marginLeft: "10px" }} title="Archive">
                             <ArchiveIcon />
+                          </IconButton>
+                          <IconButton edge="end" onClick={() => openDeleteDialog(index)} sx={{ marginLeft: "10px" }} title="Delete">
+                            <DeleteIcon />
                           </IconButton>
                         </Box>
                       </div>
@@ -211,6 +288,29 @@ const OrderedList = () => {
       >
         <AddIcon fontSize="medium" />
       </Fab>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={closeDeleteDialog}
+      >
+        <DialogTitle id="delete-dialog-title">
+          Confirm deletion
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="delete-dialog-description">
+            Delete task: {itemToDelete?.text}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDeleteDialog} color="primary">
+            Cancel
+          </Button>
+          <Button onClick={confirmDelete} autoFocus color="error">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

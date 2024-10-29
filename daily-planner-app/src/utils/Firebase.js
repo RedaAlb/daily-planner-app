@@ -22,7 +22,7 @@ const firebaseConfig = {
 
 
 const app = initializeApp(firebaseConfig);
-const appDb = db.getDatabase(app);
+export const appDb = db.getDatabase(app);
 const dbRef = db.ref(appDb);
 
 const platform = Capacitor.getPlatform();
