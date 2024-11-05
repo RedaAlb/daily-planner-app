@@ -1,35 +1,33 @@
-import React, { useReducer } from "react";
+import React, { useReducer } from 'react';
 
-import "../../css/global-tasks-view.css";
-
+import "../../css/archived-view.css";
 
 import DailyplannerContext from "../dailyplanner_view/context/dailyplanner-context";
 import dailyplannerReducer from "../dailyplanner_view/context/dailyplanner-reducer";
 
 import { INITIAL_STATE } from "../../utils/constants";
 
-import GlobalTasksTopbar from "./GlobalTasksTopbar";
-import OrderedList from "../../components/OrderedList";
+import ArchivedTasks from "./ArchivedTasks";
+import ArchivedTasksTopbar from "./ArchivedTasksTopbar";
 
 
-
-function GlobalTasksView(props) {
-  const [state, dispatch] = useReducer(dailyplannerReducer, INITIAL_STATE);
-
+function ArchivedTasksView(props) {
+  const [state, dispatch] = useReducer(dailyplannerReducer, INITIAL_STATE)
 
   return (
     <DailyplannerContext.Provider value={{ state: state, dispatch: dispatch }}>
       <div className="daily-planner-view">
-        <GlobalTasksTopbar />
+        <ArchivedTasksTopbar />
 
         <div className="daily-planner-content">
-          <div className="global-notes">
-            <OrderedList />
+          <div className="archived-notes">
+            <ArchivedTasks />
           </div>
+
         </div>
       </div>
     </DailyplannerContext.Provider>
-  )
+  );
 }
 
-export default GlobalTasksView;
+export default ArchivedTasksView;
