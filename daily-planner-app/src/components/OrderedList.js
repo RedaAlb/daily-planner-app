@@ -147,7 +147,8 @@ const OrderedList = () => {
   const toggleCheckbox = async (index) => {
     const updatedItem = {
       ...items[index],
-      checked: !items[index].checked
+      checked: !items[index].checked,
+      checkedAt: Date.now()
     };
 
     await set(ref(appDb, `global_tasks/${items[index].id}`), updatedItem);
