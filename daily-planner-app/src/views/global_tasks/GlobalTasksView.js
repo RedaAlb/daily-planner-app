@@ -8,8 +8,8 @@ import dailyplannerReducer from "../dailyplanner_view/context/dailyplanner-reduc
 
 import { INITIAL_STATE } from "../../utils/constants";
 
-import GlobalTasks from "./GlobalTasks";
 import GlobalTasksTopbar from "./GlobalTasksTopbar";
+import OrderedList from "../../components/OrderedList";
 
 
 
@@ -24,9 +24,8 @@ function GlobalTasksView(props) {
 
         <div className="daily-planner-content">
           <div className="global-notes">
-            <GlobalTasks />
+            <OrderedList />
           </div>
-
         </div>
       </div>
     </DailyplannerContext.Provider>

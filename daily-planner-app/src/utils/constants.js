@@ -1,6 +1,7 @@
 // Views path
 export const SETTINGS_VIEW_PATH = "/settings";
 export const GLOBAL_TASKS_VIEW_PATH = "/globaltasks";
+export const ARCHIVED_TASKS_VIEW_PATH = "/archivedtasks"
 
 
 // Colours

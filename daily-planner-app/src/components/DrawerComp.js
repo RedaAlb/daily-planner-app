@@ -11,10 +11,11 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import TodayIcon from '@mui/icons-material/Today';
 import MenuIcon from '@mui/icons-material/Menu';
+import ArchiveIcon from "@mui/icons-material/Archive";
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 
-import { GLOBAL_TASKS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
+import { ARCHIVED_TASKS_VIEW_PATH, GLOBAL_TASKS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
 
 
 function DrawerComp(props) {
@@ -30,6 +31,10 @@ function DrawerComp(props) {
 
   const onGlobalClick = () => {
     navigate(GLOBAL_TASKS_VIEW_PATH);
+  }
+
+  const onArchivedTasksClick = () => {
+    navigate(ARCHIVED_TASKS_VIEW_PATH)
   }
 
 
@@ -61,6 +66,11 @@ function DrawerComp(props) {
             <ListItem button onClick={onGlobalClick}>
               <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
               <ListItemText primary="Global Tasks" />
+            </ListItem>
+
+            <ListItem button onClick={onArchivedTasksClick}>
+              <ListItemIcon> <ArchiveIcon /> </ListItemIcon>
+              <ListItemText primary="Archived Tasks" />
             </ListItem>
 
             <Divider />
