@@ -6,13 +6,13 @@ import dailyplannerContext from '../views/dailyplanner_view/context/dailyplanner
 import { DEFAULT_DATE, DEFAULT_TIME } from '../utils/constants';
 
 // Mock the Firebase utils
-jest.mock('../utils/Firebase', () => ({
-  deleteDateData: jest.fn(),
-  updateTime: jest.fn(),
-  getDbDateKey: jest.fn(() => '01-01-2023')
+vi.mock('../utils/Firebase', () => ({
+  deleteDateData: vi.fn(),
+  updateTime: vi.fn(),
+  getDbDateKey: vi.fn(() => '01-01-2023')
 }));
 
-const mockDispatch = jest.fn();
+const mockDispatch = vi.fn();
 
 const customRender = (ui, { providerProps, ...renderOptions }) => {
   return render(
@@ -37,7 +37,7 @@ describe('DateNavigation', () => {
         dispatch: mockDispatch,
       }
     };
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders correctly with mocked context', () => {

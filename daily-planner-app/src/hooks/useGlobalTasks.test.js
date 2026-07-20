@@ -2,30 +2,30 @@ import { renderHook, act } from '@testing-library/react';
 import useGlobalTasks from './useGlobalTasks';
 
 // Mock firebase database functions
-jest.mock('firebase/database', () => {
+vi.mock('firebase/database', () => {
   return {
-    ref: jest.fn(),
+    ref: vi.fn(),
     onValue: (ref, callback) => {
       // Simulate calling the onValue callback with empty data initially
       callback({ val: () => null });
       // Return a mock unsubscribe function
       return () => {};
     },
-    off: jest.fn(),
-    update: jest.fn().mockResolvedValue(),
-    set: jest.fn().mockResolvedValue(),
-    remove: jest.fn().mockResolvedValue()
+    off: vi.fn(),
+    update: vi.fn().mockResolvedValue(),
+    set: vi.fn().mockResolvedValue(),
+    remove: vi.fn().mockResolvedValue()
   };
 });
 
 // Mock the Firebase appDb constant
-jest.mock('../utils/Firebase', () => ({
+vi.mock('../utils/Firebase', () => ({
   appDb: {}
 }));
 
 describe('useGlobalTasks hook', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('initializes with empty items and archivedItems arrays', () => {

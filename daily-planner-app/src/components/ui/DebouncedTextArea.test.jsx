@@ -2,11 +2,11 @@ import React from 'react';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import DebouncedTextArea from './DebouncedTextArea';
 
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 describe('DebouncedTextArea', () => {
   it('updates local value immediately and debounces onChange', () => {
-    const onChangeMock = jest.fn();
+    const onChangeMock = vi.fn();
     render(<DebouncedTextArea value="initial" onChange={onChangeMock} />);
     
     // Find the textarea by initial value
@@ -23,7 +23,7 @@ describe('DebouncedTextArea', () => {
     
     // Fast forward time by 300ms
     act(() => {
-      jest.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300);
     });
     
     // Callback should now be called
