@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Storage } from "@capacitor/storage";
 
-import { ListItem, ListItemIcon, ListItemText, Switch } from "@mui/material";
+import { ListItem, ListItemButton, ListItemIcon, ListItemText, Switch } from "@mui/material";
 
 import { SETTING_ITEM_HEIGHT } from "../../utils/constants";
 
@@ -43,16 +43,14 @@ function SettingsItem(props) {
 
 
   return (
-    <ListItem
-      button
-      onClick={onItemClick}
-      style={{ height: SETTING_ITEM_HEIGHT, borderBottom: "1px solid #b8b8b8" }}
-    >
-      <ListItemIcon> {props.icon} </ListItemIcon>
-      <ListItemText primary={props.text} />
-      {props.switch ? (
-        <Switch checked={toggle} />
-      ) : null}
+    <ListItem disablePadding style={{ height: SETTING_ITEM_HEIGHT, borderBottom: "1px solid #b8b8b8" }}>
+      <ListItemButton onClick={onItemClick}>
+        <ListItemIcon> {props.icon} </ListItemIcon>
+        <ListItemText primary={props.text} />
+        {props.switch ? (
+          <Switch checked={toggle} />
+        ) : null}
+      </ListItemButton>
     </ListItem>
   )
 }

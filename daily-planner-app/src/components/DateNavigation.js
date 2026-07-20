@@ -19,9 +19,9 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 
 import dailyplannerContext from "../views/dailyplanner_view/context/dailyplanner-context";
-import { SET_DATE } from "../views/dailyplanner_view/context/dailyplanner-actions";
+import { SET_DATE, SET_DAILYBIGS, SET_TASKS, SET_ROUTINES, SET_NOTES, SET_TIME, SET_DATE_KEYS } from "../views/dailyplanner_view/context/dailyplanner-actions";
 
-import { deleteDateData, getDbDateKey, updateTime } from "../utils/Firebase";
+import { deleteDateData, getDbDateKey, updateTime, loadAllDateKeys } from "../utils/Firebase";
 import { DATEPICKER_DOT_COLOUR } from "../utils/constants";
 
 import ConfirmDialog from './ConfirmDialog';
@@ -82,7 +82,16 @@ function DateNavigation(props) {
 
   const onDeleteDateConfirm = () => {
     deleteDateData(state.currentDate);
-    window.location.reload();
+    
+    dispatch({ type: SET_TIME, payload: undefined });
+    dispatch({ type: SET_DAILYBIGS, payload: undefined });
+    dispatch({ type: SET_TASKS, payload: undefined });
+    dispatch({ type: SET_ROUTINES, payload: undefined });
+    dispatch({ type: SET_NOTES, payload: undefined });
+    
+    loadAllDateKeys().then((dateKeys) => {
+      dispatch({ type: SET_DATE_KEYS, payload: dateKeys });
+    });
   }
 
 
