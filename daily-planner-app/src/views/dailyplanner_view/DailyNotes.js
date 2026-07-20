@@ -1,6 +1,7 @@
 import React, { useContext, useEffect, useState } from "react";
 
 import dailyplannerContext from "./context/dailyplanner-context";
+import useDebounce from "../../hooks/useDebounce";
 
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE } from "../../utils/constants";
 
@@ -14,13 +15,16 @@ function DailyNotes(props) {
   const [notes, setNotes] = useState(state.notes);
 
 
+  const debouncedUpdateNotes = useDebounce((val) => {
+    updateNotes(state.currentDate, val);
+    initDate(state.currentDate, state.time, dispatch);
+  }, 300);
+
   const onTextchange = (event) => {
     const textboxValue = event.target.value;
 
     setNotes(textboxValue);
-    updateNotes(state.currentDate, textboxValue);
-
-    initDate(state.currentDate, state.time, dispatch);
+    debouncedUpdateNotes(textboxValue);
   }
 
 

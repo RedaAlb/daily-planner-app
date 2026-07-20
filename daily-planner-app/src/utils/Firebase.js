@@ -246,11 +246,13 @@ export const deleteDb = () => {
 export const checkConnectionStatus = (setOffline) => {
   const connRef = db.ref(appDb, ".info/connected");
 
-  db.onValue(connRef, (snapshot) => {
+  const unsubscribe = db.onValue(connRef, (snapshot) => {
     if (snapshot.val() === true) {
       setOffline(false);
     } else {
       setOffline(true);
     }
-  })
+  });
+
+  return unsubscribe;
 }

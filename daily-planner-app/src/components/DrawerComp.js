@@ -7,6 +7,7 @@ import Box from "@mui/material/Box";
 import List from "@mui/material/List";
 import Divider from "@mui/material/Divider";
 import ListItem from "@mui/material/ListItem";
+import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import TodayIcon from '@mui/icons-material/Today';
@@ -63,24 +64,32 @@ function DrawerComp(props) {
               <Typography variant="h6" noWrap component="div">Main</Typography>
             </ListItem>
 
-            <ListItem button onClick={onDailyPlannerClick}>
-              <ListItemIcon> <TodayIcon /> </ListItemIcon>
-              <ListItemText primary="Daily Planner" />
+            <ListItem disablePadding>
+              <ListItemButton onClick={onDailyPlannerClick}>
+                <ListItemIcon> <TodayIcon /> </ListItemIcon>
+                <ListItemText primary="Daily Planner" />
+              </ListItemButton>
             </ListItem>
 
-            <ListItem button onClick={onGlobalClick}>
-              <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
-              <ListItemText primary="Global Tasks" />
+            <ListItem disablePadding>
+              <ListItemButton onClick={onGlobalClick}>
+                <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
+                <ListItemText primary="Global Tasks" />
+              </ListItemButton>
             </ListItem>
 
-            <ListItem button onClick={onGymWeightsClick}>
-              <ListItemIcon> <FitnessCenterIcon /> </ListItemIcon>
-              <ListItemText primary="Gym Weights" />
+            <ListItem disablePadding>
+              <ListItemButton onClick={onGymWeightsClick}>
+                <ListItemIcon> <FitnessCenterIcon /> </ListItemIcon>
+                <ListItemText primary="Gym Weights" />
+              </ListItemButton>
             </ListItem>
 
-            <ListItem button onClick={onArchivedTasksClick}>
-              <ListItemIcon> <ArchiveIcon /> </ListItemIcon>
-              <ListItemText primary="Archived Tasks" />
+            <ListItem disablePadding>
+              <ListItemButton onClick={onArchivedTasksClick}>
+                <ListItemIcon> <ArchiveIcon /> </ListItemIcon>
+                <ListItemText primary="Archived Tasks" />
+              </ListItemButton>
             </ListItem>
 
             <Divider />
@@ -89,9 +98,11 @@ function DrawerComp(props) {
               <Typography variant="h6" noWrap component="div">App</Typography>
             </ListItem>
 
-            <ListItem button onClick={onSettingsClick}>
-              <ListItemIcon> <SettingsIcon /> </ListItemIcon>
-              <ListItemText primary="Settings" />
+            <ListItem disablePadding>
+              <ListItemButton onClick={onSettingsClick}>
+                <ListItemIcon> <SettingsIcon /> </ListItemIcon>
+                <ListItemText primary="Settings" />
+              </ListItemButton>
             </ListItem>
             <Divider />
           </List>

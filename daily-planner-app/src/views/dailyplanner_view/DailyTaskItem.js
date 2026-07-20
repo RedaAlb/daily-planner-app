@@ -6,6 +6,7 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import EastIcon from '@mui/icons-material/East';
 
 import dailyplannerContext from "./context/dailyplanner-context";
+import useDebounce from "../../hooks/useDebounce";
 
 import { initDate, updateTask } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT } from "../../utils/constants";
@@ -34,14 +35,17 @@ function DailyTaskItem(props) {
   }
 
 
+  const debouncedUpdateTask = useDebounce((newTask) => {
+    updateTask(state.currentDate, props.index, newTask);
+    initDate(state.currentDate, state.time, dispatch);
+  }, 300);
+
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
     const newTask = { ...task, text: textboxValue };
 
     setTask(newTask);
-    updateTask(state.currentDate, props.index, newTask);
-
-    initDate(state.currentDate, state.time, dispatch);
+    debouncedUpdateTask(newTask);
   }
 
 

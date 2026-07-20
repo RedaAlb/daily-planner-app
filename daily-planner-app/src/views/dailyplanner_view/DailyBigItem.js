@@ -5,6 +5,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EastIcon from '@mui/icons-material/East';
 
 import dailyplannerContext from "./context/dailyplanner-context";
+import useDebounce from "../../hooks/useDebounce";
 
 import { initDate, updateDailyBig } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, PRIMARY_FONT_SIZE } from "../../utils/constants";
@@ -33,14 +34,17 @@ function DailyBigItem(props) {
   }
 
 
+  const debouncedUpdateDailyBig = useDebounce((newDailyBig) => {
+    updateDailyBig(state.currentDate, props.index, newDailyBig);
+    initDate(state.currentDate, state.time, dispatch);
+  }, 300);
+
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
     const newDailyBig = { ...dailyBig, text: textboxValue }
 
     setDailyBig(newDailyBig);
-    updateDailyBig(state.currentDate, props.index, newDailyBig);
-
-    initDate(state.currentDate, state.time, dispatch);
+    debouncedUpdateDailyBig(newDailyBig);
   }
 
 

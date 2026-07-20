@@ -51,9 +51,9 @@ export const TASK_OBJ = {
 // State defaults
 export const DEFAULT_DATE = new Date();
 export const DEFAULT_TIME = "";
-export const DEFAULT_ROUTINES = Array(3).fill(ROUTINE_OBJ);
-export const DEFAULT_DAILY_BIGS = Array(NUM_DAILY_BIG_ITEMS).fill(DAILY_BIG_OBJ);
-export const DEFAULT_TASKS = Array(NUM_TASK_ITEMS).fill(TASK_OBJ);
+export const DEFAULT_ROUTINES = Array.from({ length: 3 }, () => ({ ...ROUTINE_OBJ }));
+export const DEFAULT_DAILY_BIGS = Array.from({ length: NUM_DAILY_BIG_ITEMS }, () => ({ ...DAILY_BIG_OBJ }));
+export const DEFAULT_TASKS = Array.from({ length: NUM_TASK_ITEMS }, () => ({ ...TASK_OBJ }));
 export const DEFAULT_NOTES = "";
 export const DEFAULT_DATE_KEYS = [];
 
@@ -77,6 +77,9 @@ export const NOTES_PATH = "notes";
 export const TIME_PATH = "time";
 export const DATE_KEYS_PATH = "dateKeys";
 export const LOCATION_PATH = "location";
+export const GLOBAL_TASKS_PATH = "global_tasks";
+export const ARCHIVED_GLOBAL_TASKS_PATH = "archived_global_tasks";
+export const WORKOUTS_PATH = "workouts";
 
 
 // Capacitor storage

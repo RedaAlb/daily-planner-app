@@ -10,7 +10,10 @@ function LostConnection(props) {
 
 
   useEffect(() => {
-    checkConnectionStatus(setOffline);
+    const unsubscribe = checkConnectionStatus(setOffline);
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [])
 
 
