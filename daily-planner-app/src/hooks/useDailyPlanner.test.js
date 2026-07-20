@@ -4,18 +4,18 @@ import { loadDate, loadAllDateKeys } from '../utils/Firebase';
 import { INITIAL_STATE } from '../utils/constants';
 
 // Mock the Firebase utils
-jest.mock('../utils/Firebase', () => ({
-  loadDate: jest.fn(),
-  loadAllDateKeys: jest.fn()
+vi.mock('../utils/Firebase', () => ({
+  loadDate: vi.fn(),
+  loadAllDateKeys: vi.fn()
 }));
 
 // Mock the Date constructor to have a consistent initial state for testing
 const mockDate = new Date('2023-01-01T12:00:00Z');
-jest.spyOn(global, 'Date').mockImplementation(() => mockDate);
+vi.spyOn(global, 'Date').mockImplementation(() => mockDate);
 
 describe('useDailyPlanner hook', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup default mock returns
     loadAllDateKeys.mockResolvedValue(['01-01-2023']);
@@ -29,7 +29,7 @@ describe('useDailyPlanner hook', () => {
   });
 
   afterAll(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('initializes with the INITIAL_STATE', async () => {

@@ -1,11 +1,11 @@
 import { renderHook, act } from '@testing-library/react';
 import useDebounce from './useDebounce';
 
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 describe('useDebounce', () => {
   it('should debounce the callback', () => {
-    const callback = jest.fn();
+    const callback = vi.fn();
     const { result } = renderHook(() => useDebounce(callback, 300));
 
     act(() => {
@@ -17,7 +17,7 @@ describe('useDebounce', () => {
     expect(callback).not.toHaveBeenCalled();
 
     act(() => {
-      jest.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300);
     });
 
     expect(callback).toHaveBeenCalledTimes(1);
