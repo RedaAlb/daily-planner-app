@@ -1,11 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import * as db from "firebase/database";
 
-import { Capacitor } from '@capacitor/core';
-import { Storage } from '@capacitor/storage';
-import { Geolocation } from '@capacitor/geolocation';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
-
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
 import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME } from "./constants";
 
@@ -24,8 +19,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const appDb = db.getDatabase(app);
 const dbRef = db.ref(appDb);
-
-const platform = Capacitor.getPlatform();
 
 
 export const loadDate = async (date) => {
@@ -131,16 +124,22 @@ export const initDate = async (date, time, dispatch) => {
 
 
     // Save location if location setting is turned on.
-    const { value } = await Storage.get({ key: DATE_SAVE_LOCATION });
+    const value = localStorage.getItem(DATE_SAVE_LOCATION);
 
     if (value !== null && value !== "false") {
-      const position = await Geolocation.getCurrentPosition();
+      try {
+        const position = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
 
-      const latitude = position.coords.latitude;
-      const longitude = position.coords.longitude;
-      const locationString = `${latitude} ${longitude}`;
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const locationString = `${latitude} ${longitude}`;
 
-      db.set(db.ref(appDb, `${dateKey}/${LOCATION_PATH}/`), locationString);
+        db.set(db.ref(appDb, `${dateKey}/${LOCATION_PATH}/`), locationString);
+      } catch (error) {
+        console.error("Geolocation failed:", error);
+      }
     }
   }
 }
@@ -172,47 +171,24 @@ export const exportDb = async (setExportSnackbar) => {
   const nowDateTimeString =
     `${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear()}_${dt.getHours()}-${dt.getMinutes()}-${dt.getSeconds()}`
 
-  const fileName = `db_${nowDateTimeString}`;
+  const fileName = `db_${nowDateTimeString}.json`;
 
   await saveDataToFile(fileName, dbDataJsonString);
-
-  if (platform !== "web") {
-    setExportSnackbar(true);
-  }
+  setExportSnackbar(true);
 }
 
 
 export const saveDataToFile = async (fileName, dataToSave) => {
-  if (platform === "web") {
-    const element = document.createElement("a");
-    const file = new Blob([dataToSave], {
-      type: "text/plain;charset=utf-8"
-    })
+  const element = document.createElement("a");
+  const file = new Blob([dataToSave], {
+    type: "application/json;charset=utf-8"
+  });
 
-    element.href = URL.createObjectURL(file);
-    element.download = fileName;
-    element.click();
-  }
-  else {
-    try {
-      await Filesystem.writeFile({
-        path: `${EXPORTS_DIR_NAME}/${fileName}.txt`,
-        data: dataToSave,
-        directory: Directory.Documents,
-        encoding: Encoding.UTF8,
-      })
-
-    } catch (e) {
-      await Filesystem.mkdir({
-        path: `${EXPORTS_DIR_NAME}`,
-        directory: Directory.Documents,
-      })
-      console.log("Directory created in documents");
-
-      // Call function again after creating the directory for the first time to save data.
-      saveDataToFile(fileName, dataToSave);
-    }
-  }
+  const objectUrl = URL.createObjectURL(file);
+  element.href = objectUrl;
+  element.download = fileName;
+  element.click();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 100);
 }
 
 

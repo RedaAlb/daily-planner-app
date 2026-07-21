@@ -82,6 +82,6 @@ export const ARCHIVED_GLOBAL_TASKS_PATH = "archived_global_tasks";
 export const WORKOUTS_PATH = "workouts";
 
 
-// Capacitor storage
+// Storage keys
 export const DATE_SAVE_LOCATION = "DATE_SAVE_LOCATION";
 export const EXPORTS_DIR_NAME = "dailyplanner_app_exports";
