@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Storage } from "@capacitor/storage";
-
 import { ListItem, ListItemButton, ListItemIcon, ListItemText, Switch } from "@mui/material";
 
 import { SETTING_ITEM_HEIGHT } from "../../utils/constants";
@@ -19,7 +17,7 @@ function SettingsItem(props) {
       setToggle(newToggle);
 
       if (props.saveKey) {
-        await Storage.set({ key: props.saveKey, value: JSON.stringify(newToggle) })
+        localStorage.setItem(props.saveKey, JSON.stringify(newToggle));
       }
     }
   }
@@ -28,8 +26,8 @@ function SettingsItem(props) {
   useEffect(() => {
     // If its a setting item that stores a value, e.g. a toggle, load the saved value.
     if (props.saveKey) {
-      const loadSavedValue = async () => {
-        const { value } = await Storage.get({ key: props.saveKey });
+      const loadSavedValue = () => {
+        const value = localStorage.getItem(props.saveKey);
 
         if (value !== null) {
           const valueBool = JSON.parse(value);
