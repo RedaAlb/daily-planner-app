@@ -122,7 +122,7 @@ function DateNavigation(props) {
             <TextField fullWidth  {...params} />
           }
           renderDay={(date, _value, DayComponentProps) => {
-            const dateIsPopulated = state.dateKeys.includes(getDbDateKey(date));
+            const dateIsPopulated = Array.isArray(state.dateKeys) && state.dateKeys.includes(getDbDateKey(date));
             const isMarked = !DayComponentProps.outsideCurrentMonth && dateIsPopulated;
 
             return (

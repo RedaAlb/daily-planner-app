@@ -11,8 +11,9 @@ I initially designed this daily planner in a [paper format](paper_version.png), 
 ## 🚀 Key Features
 
 * **Daily Tasks & Routines**: Track daily routines, priorities, global task backlog, and archived tasks.
-* **Real-time Cloud Sync**: Powered by Firebase Realtime Database for automatic multi-device synchronization.
-* **Progressive Web App (PWA)**: Installable directly on iOS, Android, and Desktop as a standalone native-feeling application with full offline support.
+* **Google Authentication & Access Control**: Secure login via Google Sign-In with user avatar, profile badge, and optional email authorization (`REACT_APP_AUTHORIZED_EMAIL`).
+* **Real-time Cloud Sync & Demo Mode**: Powered by Firebase Realtime Database for automatic multi-device synchronization, with graceful Demo Mode fallback for unauthenticated or guest users.
+* **Progressive Web App (PWA)**: Installable directly on iOS, Android, and Desktop as a standalone native-feeling application with offline support and service worker caching.
 * **Weight & Workout Tracker**: Built-in fitness tracking module to record workout sessions and weight metrics.
 * **Data Export & Import**: Easy JSON export and import options for full data portability.
 
@@ -23,7 +24,7 @@ I initially designed this daily planner in a [paper format](paper_version.png), 
 * **Frontend**: React 18, Material UI (MUI v5), Emotion
 * **Build Tool & Dev Server**: Vite 5
 * **PWA Engine**: `vite-plugin-pwa`, Workbox Service Worker
-* **Database & Cloud**: Firebase Realtime Database v9
+* **Database & Auth**: Firebase Realtime Database & Firebase Authentication (Google Sign-In)
 * **Testing**: Vitest, React Testing Library
 * **Styling**: Modular CSS & Material UI Theme System
 
@@ -41,9 +42,9 @@ cd daily-planner-app
 npm install
 ```
 
-### 2. Firebase Configuration (Optional for Cloud Sync)
+### 2. Firebase Configuration & Auth Setup
 
-To enable live Firebase sync for your personal deployment, create a `.env.local` file in the root directory:
+To enable live Firebase sync and Google Authentication for your personal deployment, create a `.env.local` file in the root directory:
 
 ```env
 REACT_APP_API_KEY="your-api-key"
@@ -53,9 +54,12 @@ REACT_APP_PROJECT_ID="your-project-id"
 REACT_APP_STORAGE_BUCKET="your-project.appspot.com"
 REACT_APP_MESSAGING_SENDER_ID="your-sender-id"
 REACT_APP_APP_ID="your-app-id"
+REACT_APP_AUTHORIZED_EMAIL="your-email@gmail.com"
 ```
 
-> **Note**: If Firebase environment variables are not provided, the app can run in local mode.
+> **Note**: 
+> - If `REACT_APP_AUTHORIZED_EMAIL` is set, only that specific Google account will display as authorized for cloud sync.
+> - If Firebase environment variables are omitted, the application runs automatically in **Demo Mode** (local preview).
 
 ### 3. Available Scripts
 
