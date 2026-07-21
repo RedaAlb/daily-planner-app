@@ -5,15 +5,17 @@ import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/daily
 import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME } from "./constants";
 
 
+const hasFirebaseConfig = Boolean(process.env.REACT_APP_PROJECT_ID && process.env.REACT_APP_DATABASE_URL);
+
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_API_KEY,
-  authDomain: process.env.REACT_APP_AUTH_DOMAIN,
-  databaseURL: process.env.REACT_APP_DATABASE_URL,
-  projectId: process.env.REACT_APP_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_APP_ID
-}
+  apiKey: process.env.REACT_APP_API_KEY || "demo-key",
+  authDomain: process.env.REACT_APP_AUTH_DOMAIN || "demo.firebaseapp.com",
+  databaseURL: process.env.REACT_APP_DATABASE_URL || "https://demo-default-rtdb.firebaseio.com",
+  projectId: process.env.REACT_APP_PROJECT_ID || "demo-project",
+  storageBucket: process.env.REACT_APP_STORAGE_BUCKET || "demo.appspot.com",
+  messagingSenderId: process.env.REACT_APP_MESSAGING_SENDER_ID || "000000000",
+  appId: process.env.REACT_APP_APP_ID || "1:000000000:web:demo"
+};
 
 
 const app = initializeApp(firebaseConfig);
@@ -220,6 +222,11 @@ export const deleteDb = () => {
 
 
 export const checkConnectionStatus = (setOffline) => {
+  if (!hasFirebaseConfig) {
+    setOffline(false);
+    return () => {};
+  }
+
   const connRef = db.ref(appDb, ".info/connected");
 
   const unsubscribe = db.onValue(connRef, (snapshot) => {
