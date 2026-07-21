@@ -4,7 +4,7 @@ A clean, responsive **Progressive Web App (PWA)** for daily planning, built with
 
 I initially designed this daily planner in a [paper format](paper_version.png), which I used for over 2 years, before building this application to go completely paperless.
 
-![Paper Version](paper_version.png)
+🌐 **Live Demo**: [https://daily-planner-redaalb.vercel.app/](https://daily-planner-redaalb.vercel.app/)
 
 ---
 
