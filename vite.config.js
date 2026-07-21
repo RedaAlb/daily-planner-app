@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         manifestFilename: 'manifest.json',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icon.png'],
         manifest: {
           short_name: "Daily Planner",
           name: "Daily Planner",
@@ -33,18 +33,14 @@ export default defineConfig(({ mode }) => {
             {
               src: "pwa-192x192.png",
               sizes: "192x192",
-              type: "image/png"
+              type: "image/png",
+              purpose: "any"
             },
             {
               src: "pwa-512x512.png",
               sizes: "512x512",
-              type: "image/png"
-            },
-            {
-              src: "maskable-icon-512x512.png",
-              sizes: "512x512",
               type: "image/png",
-              purpose: "any maskable"
+              purpose: "any"
             }
           ],
           start_url: "/",
