@@ -1,69 +1,94 @@
-# Daily Planner App
+# Daily Planner App (PWA)
 
-A daily planner app using React web with Capacitor for native mobile platforms.
+A clean, responsive **Progressive Web App (PWA)** for daily planning, built with **React**, **Vite**, and **Firebase Realtime Database**.
 
-I initially created this daily planner in [paper format](paper_version.png), which I used for over 2 years, so I decided to make this app to go paperless.
+I initially designed this daily planner in a [paper format](paper_version.png), which I used for over 2 years, before building this application to go completely paperless.
 
+![Paper Version](paper_version.png)
 
-# Demo
+---
 
-Please note that for the demo, there is no data persistence since Firebase will not be setup for the demo. When creating the app for yourself, please follow instructions below on how to get Firebase setup for data persistence.
+## 🚀 Key Features
 
-[Demo](https://redaalb.github.io/daily-planner-app/)
+* **Daily Tasks & Routines**: Track daily routines, priorities, global task backlog, and archived tasks.
+* **Real-time Cloud Sync**: Powered by Firebase Realtime Database for automatic multi-device synchronization.
+* **Progressive Web App (PWA)**: Installable directly on iOS, Android, and Desktop as a standalone native-feeling application with full offline support.
+* **Weight & Workout Tracker**: Built-in fitness tracking module to record workout sessions and weight metrics.
+* **Data Export & Import**: Easy JSON export and import options for full data portability.
 
+---
 
-# To build/deploy as a "native" app using Capacitor with Firebase
+## 🛠️ Tech Stack
 
-## Install node modules
-```
-cd .\daily-planner-app\
+* **Frontend**: React 18, Material UI (MUI v5), Emotion
+* **Build Tool & Dev Server**: Vite 5
+* **PWA Engine**: `vite-plugin-pwa`, Workbox Service Worker
+* **Database & Cloud**: Firebase Realtime Database v9
+* **Testing**: Vitest, React Testing Library
+* **Styling**: Modular CSS & Material UI Theme System
+
+---
+
+## ⚙️ Getting Started
+
+### 1. Prerequisites & Installation
+
+Clone the repository and install dependencies:
+
+```bash
+git clone https://github.com/RedaAlb/daily-planner-app.git
+cd daily-planner-app
 npm install
 ```
 
-## Initialise Capacitor
-```
-npx cap init "Daily Planner" "com.dailyplanner.app"
-```
+### 2. Firebase Configuration (Optional for Cloud Sync)
 
-## Setup Firebase
-- Create a [Firebase](https://firebase.google.com/) account, then a project, and then a realtime database for that created project.
-- Go to the project settings, there you will see values you need to gain access to the project, e.g. your api key.
-- Create a file called `.env.local`, and ensure this file is ignored in `.gitignore`, in that file, paste in your Firebase values from the project settings page in this exact format:
+To enable live Firebase sync for your personal deployment, create a `.env.local` file in the root directory:
 
-```
-REACT_APP_API_KEY="value"
-REACT_APP_AUTH_DOMAIN="value"
-REACT_APP_DATABASE_URL="value"
-REACT_APP_PROJECT_ID="value"
-REACT_APP_STORAGE_BUCKET="value"
-REACT_APP_MESSAGING_SENDER_ID="value"
-REACT_APP_APP_ID="value"
+```env
+REACT_APP_API_KEY="your-api-key"
+REACT_APP_AUTH_DOMAIN="your-project.firebaseapp.com"
+REACT_APP_DATABASE_URL="https://your-project-default-rtdb.firebaseio.com"
+REACT_APP_PROJECT_ID="your-project-id"
+REACT_APP_STORAGE_BUCKET="your-project.appspot.com"
+REACT_APP_MESSAGING_SENDER_ID="your-sender-id"
+REACT_APP_APP_ID="your-app-id"
 ```
 
-## Build web app
-```
-npm run build
-```
+> **Note**: If Firebase environment variables are not provided, the app can run in local mode.
 
-## Install native platforms needed
-```
-npm i @capacitor/android @capacitor/ios
-npx cap add android
-npx cap add ios
+### 3. Available Scripts
 
-npx cap copy
-npx cap copy web
-```
+* **Start Development Server**:
+  ```bash
+  npm run start
+  ```
+  Runs the Vite development server with network host enabled (`http://localhost:3000`).
 
-## Deploy
+* **Run Unit Tests**:
+  ```bash
+  npm test
+  ```
+  Launches Vitest unit tests in watch mode. Run `npm test -- --run` for single pass execution.
 
-Open the output folder in your chosen native platform IDE and install to device.
+* **Build Production App**:
+  ```bash
+  npm run build
+  ```
+  Generates production-optimized web & PWA assets in the `/dist` directory.
 
+---
 
-# To make changes
+## 📱 Installing as a PWA on Mobile
 
-After changes made, run:
-```
-npm run build
-npx cap sync
-```
+Because the app is a PWA, you can install it directly to your phone's home screen without needing app store downloads:
+
+* **iOS (Safari)**: Open the deployed app URL in Safari → Tap **Share** → Tap **Add to Home Screen**.
+* **Android (Chrome)**: Open the deployed app URL in Chrome → Tap the 3-dots menu → Tap **Install App** / **Add to Home Screen**.
+* **Desktop (Chrome/Edge)**: Click the **Install** button located in the browser's address bar.
+
+---
+
+## 📜 License
+
+This project is licensed under the [MIT License](LICENSE).
