@@ -24,6 +24,8 @@ const useGlobalTasks = () => {
       } else {
         setItems([]);
       }
+    }, (error) => {
+      setItems([]);
     });
 
     const archivedListener = onValue(archivedTasksRef, (snapshot) => {
@@ -39,6 +41,8 @@ const useGlobalTasks = () => {
       } else {
         setArchivedItems([]);
       }
+    }, (error) => {
+      setArchivedItems([]);
     });
 
     return () => {

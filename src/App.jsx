@@ -8,18 +8,23 @@ import ArchivedTasksView from "./views/archived_tasks/ArchivedTasksView";
 import GymWeightsView from "./views/gymweights_view/GymWeightsView";
 
 
+import { AuthProvider } from "./context/AuthContext";
+
+
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<DailyPlannerView />} />
-        <Route path={GLOBAL_TASKS_VIEW_PATH} element={<GlobalTasksView />} />
-        <Route path={GYM_WEIGHTS_VIEW_PATH} element={<GymWeightsView />} />
-        <Route path={ARCHIVED_TASKS_VIEW_PATH} element={<ArchivedTasksView />} />
-        <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />
-        <Route path="*" element={<h1>No page found</h1>} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<DailyPlannerView />} />
+          <Route path={GLOBAL_TASKS_VIEW_PATH} element={<GlobalTasksView />} />
+          <Route path={GYM_WEIGHTS_VIEW_PATH} element={<GymWeightsView />} />
+          <Route path={ARCHIVED_TASKS_VIEW_PATH} element={<ArchivedTasksView />} />
+          <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />
+          <Route path="*" element={<h1>No page found</h1>} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   )
 }
 

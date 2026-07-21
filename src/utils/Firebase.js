@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import * as db from "firebase/database";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
 import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME } from "./constants";
@@ -20,27 +21,53 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const appDb = db.getDatabase(app);
+export const auth = getAuth(app);
 const dbRef = db.ref(appDb);
+
+const googleProvider = new GoogleAuthProvider();
+
+export const loginWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    return result.user;
+  } catch (error) {
+    console.error("Google login failed:", error);
+    throw error;
+  }
+};
+
+export const logoutUser = async () => {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error("Logout failed:", error);
+    throw error;
+  }
+};
+
+export const subscribeToAuthChanges = (callback) => {
+  return onAuthStateChanged(auth, callback);
+};
 
 
 export const loadDate = async (date) => {
   const dateKey = getDbDateKey(date);
 
-  const dateData = await db.get(db.child(dbRef, `/${dateKey}/`)).then((snapshot) => {
+  try {
+    const snapshot = await db.get(db.child(dbRef, `/${dateKey}/`));
     if (snapshot.exists()) {
-      const dateData = snapshot.val();
-      console.log("Loaded date data");
-
-      return dateData;
-    } else {
-      console.log("No data available");
-      return {}
+      return snapshot.val() || {};
     }
-  }).catch((error) => {
-    console.error(error);
-  })
+  } catch (error) {
+    // Gracefully handle permission denied (unauthenticated/demo mode)
+    if (error?.message?.includes("Permission denied")) {
+      console.log("Demo Mode: Firebase access restricted until Google login.");
+    } else {
+      console.error(error);
+    }
+  }
 
-  return dateData;
+  return {};
 }
 
 
@@ -51,56 +78,69 @@ export const getDbDateKey = (date, seperator = "-") => {
 }
 
 
-export const deleteDateData = (date) => {
+export const deleteDateData = async (date) => {
   const dateKey = getDbDateKey(date);
 
-  db.remove(db.ref(appDb, `/${dateKey}`));
-  db.remove(db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`));
+  try {
+    await db.remove(db.ref(appDb, `/${dateKey}`));
+    await db.remove(db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`));
+  } catch (error) {
+    console.warn("Firebase delete failed:", error?.message || error);
+  }
 }
 
 
 export const loadAllDateKeys = async () => {
-  const dateKeys = await db.get(db.ref(appDb, DATE_KEYS_PATH)).then((snapshot) => {
+  try {
+    const snapshot = await db.get(db.ref(appDb, DATE_KEYS_PATH));
     if (snapshot.exists()) {
-      const dateKeys = Object.keys(snapshot.val());
-
-      return dateKeys;
-    } else {
-      return []
+      return Object.keys(snapshot.val() || {});
     }
-  }).catch((error) => {
-    console.error(error);
-  })
+  } catch (error) {
+    if (error?.message?.includes("Permission denied")) {
+      console.log("Demo Mode: Firebase access restricted until Google login.");
+    } else {
+      console.error(error);
+    }
+  }
 
-  return dateKeys;
+  return [];
 }
 
 
 export const updateRoutine = (date, routineIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${ROUTINES_PATH}/${routineIndex}/`), newData);
+  db.set(db.ref(appDb, `${dateKey}/${ROUTINES_PATH}/${routineIndex}/`), newData).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 
 export const updateDailyBig = (date, dailyBigIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${DAILYBIGS_PATH}/${dailyBigIndex}/`), newData);
+  db.set(db.ref(appDb, `${dateKey}/${DAILYBIGS_PATH}/${dailyBigIndex}/`), newData).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 
 export const updateTask = (date, taskIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/${taskIndex}/`), newData);
+  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/${taskIndex}/`), newData).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 
 export const updateNotes = (date, newNotes) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${NOTES_PATH}/`), newNotes);
+  db.set(db.ref(appDb, `${dateKey}/${NOTES_PATH}/`), newNotes).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 
@@ -113,35 +153,37 @@ export const initDate = async (date, time, dispatch) => {
     const newDate = new Date();
     const newTime = `${newDate.getHours()}:${newDate.getMinutes()}`;
 
-    db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
-    dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
+    try {
+      await db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
+      dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
 
+      // Add the dateKey to the db, this is used to add dots to the populated dates in the date picker.
+      const dateKeysRef = db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`);
+      const newDateKeyRef = db.push(dateKeysRef);
 
-    // Add the dateKey to the db, this is used to add dots to the populated dates in the date picker.
-    const dateKeysRef = db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`);
-    const newDateKeyRef = db.push(dateKeysRef);
+      await db.set(newDateKeyRef, dateKey);
+      dispatch({ type: ADD_DATE_KEY, payload: dateKey });
 
-    db.set(newDateKeyRef, dateKey);
-    dispatch({ type: ADD_DATE_KEY, payload: dateKey });
+      // Save location if location setting is turned on.
+      const value = localStorage.getItem(DATE_SAVE_LOCATION);
 
+      if (value !== null && value !== "false") {
+        try {
+          const position = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
 
-    // Save location if location setting is turned on.
-    const value = localStorage.getItem(DATE_SAVE_LOCATION);
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const locationString = `${latitude} ${longitude}`;
 
-    if (value !== null && value !== "false") {
-      try {
-        const position = await new Promise((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
-
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        const locationString = `${latitude} ${longitude}`;
-
-        db.set(db.ref(appDb, `${dateKey}/${LOCATION_PATH}/`), locationString);
-      } catch (error) {
-        console.error("Geolocation failed:", error);
+          await db.set(db.ref(appDb, `${dateKey}/${LOCATION_PATH}/`), locationString);
+        } catch (error) {
+          console.error("Geolocation failed:", error);
+        }
       }
+    } catch (err) {
+      console.warn("Firebase init date write restricted (demo mode or offline):", err?.message || err);
     }
   }
 }
@@ -150,7 +192,9 @@ export const initDate = async (date, time, dispatch) => {
 export const updateTime = (date, newTime) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
+  db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 
@@ -164,8 +208,11 @@ export const exportDb = async (setExportSnackbar) => {
       return {}
     }
   }).catch((error) => {
-    console.error(error);
+    console.warn("Firebase export failed (demo mode or offline):", error?.message || error);
+    return null;
   })
+
+  if (!dbData) return;
 
   const dbDataJsonString = JSON.stringify(dbData, null, 2);
 
@@ -207,7 +254,9 @@ export const importDb = (setImportSnackbar) => {
     reader.onload = (readerEvent) => {
       const content = readerEvent.target.result;
       const json = JSON.parse(content)
-      db.set(db.ref(appDb, "/"), json);
+      db.set(db.ref(appDb, "/"), json).catch((err) => {
+        console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+      });
       setImportSnackbar(true);
     }
   }
@@ -217,7 +266,9 @@ export const importDb = (setImportSnackbar) => {
 
 
 export const deleteDb = () => {
-  db.set(db.ref(appDb, "/"), null);
+  db.set(db.ref(appDb, "/"), null).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
 }
 
 

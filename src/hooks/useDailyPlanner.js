@@ -19,17 +19,18 @@ export const useDailyPlanner = () => {
     dispatch({ type: SET_TIME, payload: undefined });
 
     loadDate(state.currentDate).then((dateData) => {
-      dispatch({ type: SET_TIME, payload: dateData.time });
-      dispatch({ type: SET_DAILYBIGS, payload: dateData.dailyBigs });
-      dispatch({ type: SET_TASKS, payload: dateData.tasks });
-      dispatch({ type: SET_ROUTINES, payload: dateData.routines });
-      dispatch({ type: SET_NOTES, payload: dateData.notes });
+      const data = dateData || {};
+      dispatch({ type: SET_TIME, payload: data.time });
+      dispatch({ type: SET_DAILYBIGS, payload: data.dailyBigs });
+      dispatch({ type: SET_TASKS, payload: data.tasks });
+      dispatch({ type: SET_ROUTINES, payload: data.routines });
+      dispatch({ type: SET_NOTES, payload: data.notes });
     });
   }, [state.currentDate]);
 
   useEffect(() => {
     loadAllDateKeys().then((dateKeys) => {
-      dispatch({ type: SET_DATE_KEYS, payload: dateKeys });
+      dispatch({ type: SET_DATE_KEYS, payload: dateKeys || [] });
     });
   }, []);
 
