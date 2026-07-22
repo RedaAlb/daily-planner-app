@@ -143,7 +143,7 @@ function DateNavigation(props) {
         onClick={onNextDayClick}
         color="primary"
         size="large"
-        sx={{ position: "fixed", bottom: 26, right: 26 }}
+        sx={{ position: "fixed", bottom: 80, right: 26 }}
       >
         <ChevronRightIcon fontSize="large" />
       </Fab>
@@ -152,12 +152,12 @@ function DateNavigation(props) {
         onClick={onPreviousDayClick}
         color="primary"
         size="large"
-        sx={{ position: "fixed", bottom: 26, right: 100 }}
+        sx={{ position: "fixed", bottom: 80, right: 100 }}
       >
         <ChevronLeftIcon fontSize="large" />
       </Fab>
 
-      <Box sx={{ position: "fixed", bottom: 26, right: 160 }}>
+      <Box sx={{ position: "fixed", bottom: 80, right: 160 }}>
         <SpeedDial
           ariaLabel="Date SpeedDial"
           sx={{ position: 'absolute', bottom: 0, right: 16 }}

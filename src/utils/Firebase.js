@@ -135,6 +135,39 @@ export const updateTask = (date, taskIndex, newData) => {
 }
 
 
+export const updateDateTasks = (dateKey, tasks) => {
+  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), tasks).catch((err) => {
+    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+  });
+}
+
+export const loadAllTasksData = async () => {
+  const allData = {};
+
+  try {
+    const snapshot = await db.get(db.ref(appDb, "/"));
+    if (snapshot.exists()) {
+      const dbData = snapshot.val() || {};
+      const dateKeys = dbData[DATE_KEYS_PATH] ? Object.keys(dbData[DATE_KEYS_PATH]) : [];
+
+      dateKeys.forEach(dateKey => {
+        if (dbData[dateKey] && dbData[dateKey][TASKS_PATH]) {
+          allData[dateKey] = dbData[dateKey][TASKS_PATH];
+        }
+      });
+    }
+  } catch (error) {
+    if (error?.message?.includes("Permission denied")) {
+      console.log("Demo Mode: Firebase access restricted until Google login.");
+    } else {
+      console.error("Firebase loadAllTasksData failed:", error);
+    }
+  }
+
+  return allData;
+}
+
+
 export const updateNotes = (date, newNotes) => {
   const dateKey = getDbDateKey(date);
 
@@ -275,7 +308,7 @@ export const deleteDb = () => {
 export const checkConnectionStatus = (setOffline) => {
   if (!hasFirebaseConfig) {
     setOffline(false);
-    return () => {};
+    return () => { };
   }
 
   const connRef = db.ref(appDb, ".info/connected");
