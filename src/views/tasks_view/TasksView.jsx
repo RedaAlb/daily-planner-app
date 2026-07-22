@@ -25,6 +25,12 @@ function TasksView() {
   useEffect(() => {
     const fetchTasks = async () => {
       const allTasks = await loadAllTasksData();
+      const todayKey = getDbDateKey(new Date());
+
+      if (!allTasks[todayKey]) {
+        allTasks[todayKey] = Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
+      }
+
       setDateGroups(allTasks);
 
       // Sort dates oldest to newest
@@ -190,14 +196,15 @@ function TasksView() {
               const dateTasks = dateGroups[dateKey];
               if (!dateTasks) return null;
 
+              const dateObj = parseDateKey(dateKey);
+              const isDateToday = isToday(dateObj);
+
               const visibleTasks = dateTasks.map((t, i) => ({ ...t, originalIndex: i }))
                 .filter(t => t && t.text && t.text.trim() !== "" && t.checkIndex === 0);
 
-              if (visibleTasks.length === 0) return null;
+              if (visibleTasks.length === 0 && !isDateToday) return null;
 
-              const dateObj = parseDateKey(dateKey);
               const formattedDate = format(dateObj, "EEEE d MMMM yyyy");
-              const isDateToday = isToday(dateObj);
 
               return (
                 <div key={dateKey} className="tasks-date-group">
@@ -206,25 +213,37 @@ function TasksView() {
                     <span>{formattedDate}</span>
                   </div>
                   <Droppable droppableId={dateKey}>
-                    {(provided) => (
-                      <div ref={provided.innerRef} {...provided.droppableProps}>
-                        {visibleTasks.map((task, visibleIndex) => (
-                          <Draggable key={`${dateKey}-${task.originalIndex}`} draggableId={`${dateKey}-${task.originalIndex}`} index={visibleIndex}>
-                            {(provided) => (
-                              <DailyTaskItem
-                                innerRef={provided.innerRef}
-                                draggableProps={provided.draggableProps}
-                                dragHandleProps={provided.dragHandleProps}
-                                task={task}
-                                index={task.originalIndex}
-                                date={dateObj}
-                                forceShowActions={true}
-                                onTaskUpdate={(originalIndex, updatedTask) => handleTaskUpdate(dateKey, originalIndex, updatedTask)}
-                                onMoveToDate={handleMoveToDate}
-                              />
-                            )}
-                          </Draggable>
-                        ))}
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        style={{
+                          minHeight: "40px"
+                        }}
+                      >
+                        {visibleTasks.length === 0 ? (
+                          <div style={{ padding: "10px 0", color: "#999999", fontSize: "14px", fontStyle: "italic" }}>
+                            No pending tasks.
+                          </div>
+                        ) : (
+                          visibleTasks.map((task, visibleIndex) => (
+                            <Draggable key={`${dateKey}-${task.originalIndex}`} draggableId={`${dateKey}-${task.originalIndex}`} index={visibleIndex}>
+                              {(provided) => (
+                                <DailyTaskItem
+                                  innerRef={provided.innerRef}
+                                  draggableProps={provided.draggableProps}
+                                  dragHandleProps={provided.dragHandleProps}
+                                  task={task}
+                                  index={task.originalIndex}
+                                  date={dateObj}
+                                  forceShowActions={true}
+                                  onTaskUpdate={(originalIndex, updatedTask) => handleTaskUpdate(dateKey, originalIndex, updatedTask)}
+                                  onMoveToDate={handleMoveToDate}
+                                />
+                              )}
+                            </Draggable>
+                          ))
+                        )}
                         {provided.placeholder}
                       </div>
                     )}
