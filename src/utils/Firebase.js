@@ -3,7 +3,7 @@ import * as db from "firebase/database";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
-import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME } from "./constants";
+import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME, DEFAULT_TASKS } from "./constants";
 
 
 const hasFirebaseConfig = Boolean(process.env.REACT_APP_PROJECT_ID && process.env.REACT_APP_DATABASE_URL);
@@ -56,7 +56,11 @@ export const loadDate = async (date) => {
   try {
     const snapshot = await db.get(db.child(dbRef, `/${dateKey}/`));
     if (snapshot.exists()) {
-      return snapshot.val() || {};
+      const data = snapshot.val() || {};
+      if (data[TASKS_PATH]) data[TASKS_PATH] = normalizeFirebaseArray(data[TASKS_PATH]);
+      if (data[DAILYBIGS_PATH]) data[DAILYBIGS_PATH] = normalizeFirebaseArray(data[DAILYBIGS_PATH]);
+      if (data[ROUTINES_PATH]) data[ROUTINES_PATH] = normalizeFirebaseArray(data[ROUTINES_PATH]);
+      return data;
     }
   } catch (error) {
     // Gracefully handle permission denied (unauthenticated/demo mode)
@@ -136,10 +140,42 @@ export const updateTask = (date, taskIndex, newData) => {
 
 
 export const updateDateTasks = (dateKey, tasks) => {
-  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), tasks).catch((err) => {
+  const sanitizedTasks = Array.isArray(tasks)
+    ? tasks.map(t => t || { checkIndex: 0, text: "" })
+    : tasks;
+
+  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), sanitizedTasks).catch((err) => {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
   });
-}
+};
+
+export const normalizeFirebaseArray = (data) => {
+  if (!data) return [];
+
+  let arr;
+  if (Array.isArray(data)) {
+    arr = [...data];
+  } else if (typeof data === "object") {
+    arr = [];
+    for (const [key, value] of Object.entries(data)) {
+      const idx = parseInt(key, 10);
+      if (!isNaN(idx)) {
+        arr[idx] = value;
+      }
+    }
+  } else {
+    return [];
+  }
+
+  // Sanitize sparse slots so array indices are preserved without undefined elements
+  for (let i = 0; i < arr.length; i++) {
+    if (!arr[i]) {
+      arr[i] = { checkIndex: 0, text: "" };
+    }
+  }
+
+  return arr;
+};
 
 export const loadAllTasksData = async () => {
   const allData = {};
@@ -152,7 +188,8 @@ export const loadAllTasksData = async () => {
 
       dateKeys.forEach(dateKey => {
         if (dbData[dateKey] && dbData[dateKey][TASKS_PATH]) {
-          allData[dateKey] = dbData[dateKey][TASKS_PATH];
+          const rawTasks = dbData[dateKey][TASKS_PATH];
+          allData[dateKey] = normalizeFirebaseArray(rawTasks);
         }
       });
     }

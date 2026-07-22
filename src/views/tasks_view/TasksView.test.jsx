@@ -5,10 +5,21 @@ import TasksView from './TasksView';
 import { loadAllTasksData, updateDateTasks } from '../../utils/Firebase';
 import { BrowserRouter } from 'react-router-dom';
 
-// Mock the Firebase utils
 vi.mock('../../utils/Firebase', () => ({
   loadAllTasksData: vi.fn(),
   updateDateTasks: vi.fn(),
+  normalizeFirebaseArray: vi.fn((data) => {
+    if (Array.isArray(data)) return data;
+    if (data && typeof data === 'object') {
+      const arr = [];
+      for (const [key, value] of Object.entries(data)) {
+        const idx = parseInt(key, 10);
+        if (!isNaN(idx)) arr[idx] = value;
+      }
+      return arr;
+    }
+    return [];
+  }),
   getDbDateKey: vi.fn((date) => {
     return `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
   })
