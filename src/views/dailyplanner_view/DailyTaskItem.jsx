@@ -148,8 +148,7 @@ function DailyTaskItem(props) {
         style={{
           width: "100%",
           overflow: "hidden",
-          fontSize: SECONDARY_FONT_SIZE,
-          marginLeft: "8px"
+          fontSize: SECONDARY_FONT_SIZE
         }}
       />
 
