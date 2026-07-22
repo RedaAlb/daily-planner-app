@@ -11,25 +11,28 @@ import TasksView from "./views/tasks_view/TasksView";
 import BottomNav from "./components/BottomNav";
 
 import { AuthProvider } from "./context/AuthContext";
+import { DailyPlannerProvider } from "./views/dailyplanner_view/context/DailyPlannerProvider";
 
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div style={{ paddingBottom: "56px" }}>
-          <Routes>
-            <Route path="/" element={<DailyPlannerView />} />
-            <Route path={TASKS_VIEW_PATH} element={<TasksView />} />
-            <Route path={GLOBAL_TASKS_VIEW_PATH} element={<GlobalTasksView />} />
-            <Route path={GYM_WEIGHTS_VIEW_PATH} element={<GymWeightsView />} />
-            <Route path={ARCHIVED_TASKS_VIEW_PATH} element={<ArchivedTasksView />} />
-            <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />
-            <Route path="*" element={<h1>No page found</h1>} />
-          </Routes>
-        </div>
-        <BottomNav />
-      </Router>
+      <DailyPlannerProvider>
+        <Router>
+          <div style={{ paddingBottom: "56px" }}>
+            <Routes>
+              <Route path="/" element={<DailyPlannerView />} />
+              <Route path={TASKS_VIEW_PATH} element={<TasksView />} />
+              <Route path={GLOBAL_TASKS_VIEW_PATH} element={<GlobalTasksView />} />
+              <Route path={GYM_WEIGHTS_VIEW_PATH} element={<GymWeightsView />} />
+              <Route path={ARCHIVED_TASKS_VIEW_PATH} element={<ArchivedTasksView />} />
+              <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />
+              <Route path="*" element={<h1>No page found</h1>} />
+            </Routes>
+          </div>
+          <BottomNav />
+        </Router>
+      </DailyPlannerProvider>
     </AuthProvider>
   )
 }

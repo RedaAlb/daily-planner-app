@@ -20,6 +20,8 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
+  cursor: pointer;
+  width: fit-content;
 }
 
 .tasks-empty-state {

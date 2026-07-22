@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useCallback, memo } from "react";
+import React, { useEffect, useState, useCallback, useContext, memo } from "react";
 import { format, isToday } from "date-fns";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
+import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
 import { loadAllTasksData, updateDateTasks, getDbDateKey, normalizeFirebaseArray } from "../../utils/Firebase";
@@ -9,6 +10,8 @@ import { Chip } from "@mui/material";
 
 import TasksViewTopbar from "./TasksViewTopbar";
 import DailyTaskItem from "../dailyplanner_view/DailyTaskItem";
+import dailyplannerContext from "../dailyplanner_view/context/dailyplanner-context";
+import { SET_DATE } from "../dailyplanner_view/context/dailyplanner-actions";
 
 const parseDateKey = (key) => {
   if (!key) return new Date();
@@ -20,7 +23,8 @@ const TaskDateGroup = memo(function TaskDateGroup({
   dateKey,
   dateTasks,
   handleTaskUpdate,
-  handleMoveToDate
+  handleMoveToDate,
+  onDateHeaderClick
 }) {
   const dateObj = parseDateKey(dateKey);
   const isDateToday = isToday(dateObj);
@@ -36,7 +40,11 @@ const TaskDateGroup = memo(function TaskDateGroup({
 
   return (
     <div className="tasks-date-group">
-      <div className="tasks-date-heading" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <div
+        className="tasks-date-heading"
+        style={{ display: "flex", alignItems: "center", gap: "8px" }}
+        onClick={() => onDateHeaderClick && onDateHeaderClick(dateObj)}
+      >
         {isDateToday && (
           <Chip
             label="Today"
@@ -90,6 +98,16 @@ function TasksView() {
   const [dateGroups, setDateGroups] = useState({});
   const [sortedDateKeys, setSortedDateKeys] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const dailyPlannerCtx = useContext(dailyplannerContext);
+  const navigate = useNavigate();
+
+  const handleDateHeaderClick = useCallback((dateObj) => {
+    if (dailyPlannerCtx && dailyPlannerCtx.dispatch) {
+      dailyPlannerCtx.dispatch({ type: SET_DATE, payload: dateObj });
+    }
+    navigate("/");
+  }, [dailyPlannerCtx, navigate]);
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -266,6 +284,7 @@ function TasksView() {
               dateTasks={dateGroups[dateKey]}
               handleTaskUpdate={handleTaskUpdate}
               handleMoveToDate={handleMoveToDate}
+              onDateHeaderClick={handleDateHeaderClick}
             />
           ))}
         </DragDropContext>
