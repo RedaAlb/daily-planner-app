@@ -27,6 +27,11 @@ function DailyNotes(props) {
     debouncedUpdateNotes(textboxValue);
   }
 
+  const handleBlur = (e) => {
+    updateNotes(state.currentDate, e.target.value);
+    initDate(state.currentDate, state.time, dispatch);
+  };
+
 
   useEffect(() => {
     setNotes(state.notes);
@@ -40,6 +45,7 @@ function DailyNotes(props) {
       <textarea
         value={notes}
         onChange={onTextchange}
+        onBlur={handleBlur}
         style={{
           height: "100%",
           border: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,

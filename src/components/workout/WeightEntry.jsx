@@ -21,6 +21,10 @@ const WeightEntry = memo(({ weight, onDelete, onWeightChange }) => {
     debouncedChange(e.target.value);
   };
 
+  const handleBlur = (e) => {
+    onWeightChange(weight.id, e.target.value);
+  };
+
   return (
     <>
       <Box sx={{ display: "flex", alignItems: "center", borderBottom: "1px solid #e0e0e0"}}>
@@ -36,6 +40,7 @@ const WeightEntry = memo(({ weight, onDelete, onWeightChange }) => {
           type="number"
           value={localValue}
           onChange={handleValueChange}
+          onBlur={handleBlur}
           placeholder="Weight"
           sx={{ width: "120px", mr: 2, "& input": { textAlign: "center" }}}
           variant="standard"

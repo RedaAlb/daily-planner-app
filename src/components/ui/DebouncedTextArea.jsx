@@ -17,10 +17,15 @@ const DebouncedTextArea = memo(({ value, onChange, style }) => {
     debouncedOnChange(newValue);
   };
 
+  const handleBlur = (e) => {
+    onChange(e.target.value);
+  };
+
   return (
     <TextareaAutosize
       value={localValue}
       onChange={handleChange}
+      onBlur={handleBlur}
       style={style}
     />
   );

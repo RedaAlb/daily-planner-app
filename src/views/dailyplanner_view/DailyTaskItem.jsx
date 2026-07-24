@@ -67,6 +67,16 @@ function DailyTaskItem(props) {
     debouncedUpdateTask(newTask);
   }
 
+  const handleBlur = (e) => {
+    const currentTask = { ...task, text: e.target.value };
+    if (props.onTaskUpdate) {
+      props.onTaskUpdate(props.index, currentTask);
+    } else {
+      updateTask(itemDate, props.index, currentTask);
+      initDate(itemDate, state?.time, dispatch);
+    }
+  };
+
   const handleMoveToDate = async (targetDate) => {
     if (!targetDate) return;
     
@@ -145,6 +155,7 @@ function DailyTaskItem(props) {
       <TextareaAutosize
         value={task.text}
         onChange={onTextChange}
+        onBlur={handleBlur}
         style={{
           width: "100%",
           overflow: "hidden",

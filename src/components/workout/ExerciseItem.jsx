@@ -37,6 +37,10 @@ const ExerciseItem = memo(({
     debouncedNameChange(e.target.value);
   };
 
+  const handleBlur = (e) => {
+    onExerciseNameChange(bodyPartId, exercise.id, e.target.value);
+  };
+
   useEffect(() => {
     if (forceExpanded) {
       setExpanded(true);
@@ -57,6 +61,7 @@ const ExerciseItem = memo(({
           <TextField
             value={localName}
             onChange={handleNameChange}
+            onBlur={handleBlur}
             variant="standard"
             fullWidth
             sx={{ mr: 2, "& input": { fontSize: 18 }, pb: "4px", pt: "4px"}}
