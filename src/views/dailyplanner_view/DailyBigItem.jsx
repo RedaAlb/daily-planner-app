@@ -47,6 +47,12 @@ function DailyBigItem(props) {
     debouncedUpdateDailyBig(newDailyBig);
   }
 
+  const handleBlur = (e) => {
+    const currentDailyBig = { ...dailyBig, text: e.target.value };
+    updateDailyBig(state.currentDate, props.index, currentDailyBig);
+    initDate(state.currentDate, state.time, dispatch);
+  };
+
 
   useEffect(() => {
     setDailyBig(props.dailyBig);
@@ -72,6 +78,7 @@ function DailyBigItem(props) {
       <textarea
         value={dailyBig.text}
         onChange={onTextChange}
+        onBlur={handleBlur}
         rows={3}
         style={{
           width: "100%",

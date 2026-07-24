@@ -41,6 +41,10 @@ const BodyPartItem = memo(({
     debouncedNameChange(e.target.value);
   };
 
+  const handleBlur = (e) => {
+    onBodyPartNameChange(bodyPart.id, e.target.value);
+  };
+
   const handleAddExercise = useCallback(() => {
     setExpanded(true);
     onAddExercise(bodyPart.id).then((newExerciseId) => {
@@ -66,6 +70,7 @@ const BodyPartItem = memo(({
           <TextField
             value={localName}
             onChange={handleNameChange}
+            onBlur={handleBlur}
             variant="standard"
             fullWidth
             placeholder="Body part"
