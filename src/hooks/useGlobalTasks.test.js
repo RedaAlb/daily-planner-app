@@ -92,9 +92,9 @@ describe('useGlobalTasks hook', () => {
       });
     });
 
-    // Move 'Checked 1' (id-2, index 1) to bottom
+    // Move 'Checked 1' (id-2) to bottom
     await act(async () => {
-      await result.current.moveToBottom(1);
+      await result.current.moveToBottom('id-2');
     });
 
     const updateArg = firebaseDatabase.update.mock.calls[0][1];
@@ -123,9 +123,9 @@ describe('useGlobalTasks hook', () => {
       });
     });
 
-    // Move 'Unchecked 1' (id-1, index 0) to bottom
+    // Move 'Unchecked 1' (id-1) to bottom
     await act(async () => {
-      await result.current.moveToBottom(0);
+      await result.current.moveToBottom('id-1');
     });
 
     const updateArg = firebaseDatabase.update.mock.calls[0][1];
@@ -156,6 +156,43 @@ describe('useGlobalTasks hook', () => {
     const updateArg = firebaseDatabase.update.mock.calls[0][1];
     const restoredItemKeys = Object.keys(updateArg).filter(k => k.includes('archived-1') && updateArg[k] !== null);
     expect(updateArg[restoredItemKeys[0]].order).toBe(0);
+  });
+
+  it('createGroup creates a new group in the database', async () => {
+    const { result } = renderHook(() => useGlobalTasks());
+    let newGroupId;
+    await act(async () => {
+      newGroupId = await result.current.createGroup('New Work Group');
+    });
+    
+    expect(firebaseDatabase.push).toHaveBeenCalled();
+    expect(firebaseDatabase.set).toHaveBeenCalled();
+    expect(newGroupId).toBe('mock-uuid-123');
+    
+    const setArgs = firebaseDatabase.set.mock.calls[0];
+    expect(setArgs[1].name).toBe('New Work Group');
+    expect(setArgs[1].id).toBe('mock-uuid-123');
+  });
+
+  it('assignGroup updates the group of a task', async () => {
+    const { result } = renderHook(() => useGlobalTasks());
+    
+    act(() => {
+      onValueMock.mock.calls[0][1]({
+        val: () => ({
+          'task-1': { text: 'Task 1', order: 0, groupId: null }
+        })
+      });
+    });
+
+    await act(async () => {
+      await result.current.assignGroup('task-1', 'group-uuid');
+    });
+
+    expect(firebaseDatabase.set).toHaveBeenCalled();
+    const setArgs = firebaseDatabase.set.mock.calls[0];
+    expect(setArgs[1].groupId).toBe('group-uuid');
+    expect(setArgs[1].text).toBe('Task 1');
   });
 
 });

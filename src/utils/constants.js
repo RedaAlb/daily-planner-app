@@ -80,6 +80,7 @@ export const DATE_KEYS_PATH = "dateKeys";
 export const LOCATION_PATH = "location";
 export const GLOBAL_TASKS_PATH = "global_tasks";
 export const ARCHIVED_GLOBAL_TASKS_PATH = "archived_global_tasks";
+export const GLOBAL_TASK_GROUPS_PATH = "global_task_groups";
 export const WORKOUTS_PATH = "workouts";
 
 

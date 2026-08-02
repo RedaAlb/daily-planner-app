@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo, useCallback } from "react";
+import React, { useState, useEffect, memo, useCallback, useMemo } from "react";
 import {
   List,
   ListItem,
@@ -10,7 +10,16 @@ import {
   Typography,
   Menu,
   MenuItem,
-  ListItemText
+  ListItemText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -22,6 +31,8 @@ import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import FolderIcon from '@mui/icons-material/Folder';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import {
   DEFAULT_HORI_GAP,
@@ -35,19 +46,20 @@ import useDebounce from "../hooks/useDebounce";
 import useGlobalTasks from "../hooks/useGlobalTasks";
 import DeleteDialog from "./ui/DeleteDialog";
 import DebouncedTextArea from "./ui/DebouncedTextArea";
+import GroupAssigner from "./GroupAssigner";
 
 
 // Memoized list item component with local state management
 const ListItemComponent = memo(({
   item,
-  index,
   provided,
   onToggleCheckbox,
   onTextChange,
   onMoveToTop,
   onMoveToBottom,
   onArchive,
-  onDelete
+  onDelete,
+  onOpenGroupAssigner
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -66,16 +78,16 @@ const ListItemComponent = memo(({
   }, []);
 
   const handleAction = useCallback((actionFn) => {
-    actionFn(index);
+    actionFn(item.id);
     handleMenuClose();
-  }, [index, handleMenuClose]);
+  }, [item.id, handleMenuClose]);
 
   const handleTextChange = useCallback((value) => {
-    onTextChange(index, value);
-  }, [index, onTextChange]);
+    onTextChange(item.id, value);
+  }, [item.id, onTextChange]);
 
   const debouncedToggleCheckbox = useDebounce((checked) => {
-    onToggleCheckbox(index, checked);
+    onToggleCheckbox(item.id, checked);
   }, 300);
 
   const handleCheckboxToggle = useCallback(() => {
@@ -130,6 +142,9 @@ const ListItemComponent = memo(({
         />
 
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
+          <IconButton edge="end" aria-label="assign group" onClick={(e) => onOpenGroupAssigner(e, item.id)} title="Assign Group">
+            <FolderIcon />
+          </IconButton>
           <IconButton edge="end" aria-label="more actions" onClick={handleMenuClick} title="More actions">
             <MoreVertIcon />
           </IconButton>
@@ -172,6 +187,7 @@ const ListItemComponent = memo(({
 const OrderedList = () => {
   const {
     items,
+    groups,
     handleDragEnd,
     moveToTop,
     moveToBottom,
@@ -179,81 +195,344 @@ const OrderedList = () => {
     toggleCheckbox,
     handleTextChange,
     archiveItem,
-    confirmDelete
+    confirmDelete,
+    createGroup,
+    assignGroup
   } = useGlobalTasks();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [itemToDeleteIndex, setItemToDeleteIndex] = useState(null);
+  const [itemToDeleteId, setItemToDeleteId] = useState(null);
 
-  const openDeleteDialog = useCallback((index) => {
-    setItemToDeleteIndex(index);
+  const [assignerAnchorEl, setAssignerAnchorEl] = useState(null);
+  const [assignerTaskId, setAssignerTaskId] = useState(null);
+
+  const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+
+  const handleOpenNewGroupDialog = useCallback(() => {
+    setNewGroupDialogOpen(true);
+    setNewGroupName('');
+  }, []);
+
+  const handleCloseNewGroupDialog = useCallback(() => {
+    setNewGroupDialogOpen(false);
+  }, []);
+
+  const handleCreateGroup = useCallback(async () => {
+    if (newGroupName.trim()) {
+      await createGroup(newGroupName.trim());
+    }
+    handleCloseNewGroupDialog();
+  }, [newGroupName, createGroup, handleCloseNewGroupDialog]);
+
+  const openDeleteDialog = useCallback((taskId) => {
+    setItemToDeleteId(taskId);
     setDeleteDialogOpen(true);
   }, []);
 
   const closeDeleteDialog = useCallback(() => {
     setDeleteDialogOpen(false);
-    setItemToDeleteIndex(null);
+    setItemToDeleteId(null);
   }, []);
 
   const handleConfirmDelete = useCallback(async () => {
-    if (itemToDeleteIndex !== null) {
-      await confirmDelete(itemToDeleteIndex);
+    if (itemToDeleteId !== null) {
+      await confirmDelete(itemToDeleteId);
     }
     closeDeleteDialog();
-  }, [itemToDeleteIndex, confirmDelete, closeDeleteDialog]);
+  }, [itemToDeleteId, confirmDelete, closeDeleteDialog]);
+
+  const handleOpenGroupAssigner = useCallback((event, taskId) => {
+    setAssignerAnchorEl(event.currentTarget);
+    setAssignerTaskId(taskId);
+  }, []);
+
+  const handleCloseGroupAssigner = useCallback(() => {
+    setAssignerAnchorEl(null);
+    setAssignerTaskId(null);
+  }, []);
+
+  const handleAssignGroup = useCallback((groupId) => {
+    if (assignerTaskId) {
+      assignGroup(assignerTaskId, groupId);
+    }
+  }, [assignerTaskId, assignGroup]);
+
+  const groupedItems = useMemo(() => {
+    const result = {
+      ungrouped: {
+        id: 'ungrouped',
+        name: 'Ungrouped Tasks',
+        items: []
+      }
+    };
+    
+    Object.values(groups || {}).forEach(g => {
+      result[g.id] = {
+        id: g.id,
+        name: g.name,
+        items: []
+      };
+    });
+
+    items.forEach(item => {
+      const gId = item.groupId || 'ungrouped';
+      if (result[gId]) {
+        result[gId].items.push(item);
+      } else {
+        result.ungrouped.items.push(item);
+      }
+    });
+
+    return result;
+  }, [items, groups]);
+
+  const sortedGroupKeys = useMemo(() => {
+    const keys = Object.keys(groupedItems).filter(k => k !== 'ungrouped');
+    keys.sort((a, b) => {
+      const orderA = groups[a]?.order;
+      const orderB = groups[b]?.order;
+      if (orderA !== undefined && orderB !== undefined && orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return groupedItems[a].name.localeCompare(groupedItems[b].name);
+    });
+    return keys;
+  }, [groupedItems, groups]);
+
+  const itemToDelete = itemToDeleteId ? items.find(i => i.id === itemToDeleteId) : null;
+  const assignerTask = assignerTaskId ? items.find(i => i.id === assignerTaskId) : null;
 
   return (
     <Box>
       <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="droppable-list">
-          {(provided) => (
-            <List {...provided.droppableProps} ref={provided.innerRef}>
-              {items.length === 0 && (
-                <Typography variant="body1" sx={{ textAlign: "center", mt: 4, color: "text.secondary" }}>
-                  No global tasks yet. Tap + to add one!
-                </Typography>
-              )}
-              {items.map((item, index) => (
-                <Draggable key={item.id} draggableId={item.id} index={index}>
+        {(() => {
+          const groupKey = 'ungrouped';
+          const group = groupedItems[groupKey];
+          if (group.items.length === 0 && sortedGroupKeys.length > 0) return null;
+          return (
+            <Accordion 
+              key={groupKey} 
+              defaultExpanded 
+              disableGutters 
+              elevation={0} 
+              sx={{ 
+                '&:before': { display: 'none' },
+                borderBottom: `1px solid ${MAIN_COLOUR}40`,
+                mb: 2,
+                bgcolor: 'transparent'
+              }}
+            >
+              <AccordionSummary 
+                expandIcon={<ExpandMoreIcon />}
+                sx={{
+                  bgcolor: `${MAIN_COLOUR}15`,
+                  borderRadius: '4px',
+                  minHeight: '48px',
+                  '& .MuiAccordionSummary-content': { my: 1 }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: MAIN_COLOUR }}>
+                    {group.name} ({group.items.length})
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => { 
+                      e.stopPropagation(); 
+                      onAddTask(null); 
+                    }} 
+                    sx={{ ml: 'auto', mr: 2 }}
+                    title="Add Task to Group"
+                  >
+                    <AddIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0 }}>
+                <Droppable droppableId={groupKey} type="task">
                   {(provided) => (
-                    <ListItemComponent
-                      item={item}
-                      index={index}
-                      provided={provided}
-                      onToggleCheckbox={toggleCheckbox}
-                      onTextChange={handleTextChange}
-                      onMoveToTop={moveToTop}
-                      onMoveToBottom={moveToBottom}
-                      onArchive={archiveItem}
-                      onDelete={openDeleteDialog}
-                    />
+                    <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
+                      {group.items.length === 0 && (
+                        <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
+                          No tasks in this group.
+                        </Typography>
+                      )}
+                      {group.items.map((item, index) => (
+                        <Draggable key={item.id} draggableId={item.id} index={index}>
+                          {(provided) => (
+                            <ListItemComponent
+                              item={item}
+                              provided={provided}
+                              onToggleCheckbox={toggleCheckbox}
+                              onTextChange={handleTextChange}
+                              onMoveToTop={moveToTop}
+                              onMoveToBottom={moveToBottom}
+                              onArchive={archiveItem}
+                              onDelete={openDeleteDialog}
+                              onOpenGroupAssigner={handleOpenGroupAssigner}
+                            />
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </List>
                   )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </List>
+                </Droppable>
+              </AccordionDetails>
+            </Accordion>
+          );
+        })()}
+
+        <Droppable droppableId="group-list" type="group">
+          {(providedGroups) => (
+            <Box ref={providedGroups.innerRef} {...providedGroups.droppableProps}>
+              {sortedGroupKeys.map((groupKey, index) => {
+                const group = groupedItems[groupKey];
+                return (
+                  <Draggable key={groupKey} draggableId={groupKey} index={index}>
+                    {(providedGroup) => (
+                      <Accordion 
+                        ref={providedGroup.innerRef}
+                        {...providedGroup.draggableProps}
+                        key={groupKey} 
+                        defaultExpanded 
+                        disableGutters 
+                        elevation={0} 
+                        sx={{ 
+                          '&:before': { display: 'none' },
+                          borderBottom: `1px solid ${MAIN_COLOUR}40`,
+                          mb: 2,
+                          bgcolor: 'transparent'
+                        }}
+                      >
+                        <AccordionSummary 
+                          expandIcon={<ExpandMoreIcon />}
+                          sx={{
+                            bgcolor: `${MAIN_COLOUR}15`,
+                            borderRadius: '4px',
+                            minHeight: '48px',
+                            '& .MuiAccordionSummary-content': { my: 1 }
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                            <Box {...providedGroup.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', mr: 1, cursor: 'grab', color: MAIN_COLOUR }}>
+                              <DragHandleIcon fontSize="small" />
+                            </Box>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: MAIN_COLOUR }}>
+                              {group.name} ({group.items.length})
+                            </Typography>
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                onAddTask(groupKey); 
+                              }} 
+                              sx={{ ml: 'auto', mr: 2 }}
+                              title="Add Task to Group"
+                            >
+                              <AddIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ p: 0 }}>
+                          <Droppable droppableId={groupKey} type="task">
+                            {(provided) => (
+                              <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
+                                {group.items.length === 0 && (
+                                  <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
+                                    No tasks in this group.
+                                  </Typography>
+                                )}
+                                {group.items.map((item, index) => (
+                                  <Draggable key={item.id} draggableId={item.id} index={index}>
+                                    {(provided) => (
+                                      <ListItemComponent
+                                        item={item}
+                                        provided={provided}
+                                        onToggleCheckbox={toggleCheckbox}
+                                        onTextChange={handleTextChange}
+                                        onMoveToTop={moveToTop}
+                                        onMoveToBottom={moveToBottom}
+                                        onArchive={archiveItem}
+                                        onDelete={openDeleteDialog}
+                                        onOpenGroupAssigner={handleOpenGroupAssigner}
+                                      />
+                                    )}
+                                  </Draggable>
+                                ))}
+                                {provided.placeholder}
+                              </List>
+                            )}
+                          </Droppable>
+                        </AccordionDetails>
+                      </Accordion>
+                    )}
+                  </Draggable>
+                );
+              })}
+              {providedGroups.placeholder}
+            </Box>
           )}
         </Droppable>
       </DragDropContext>
 
       <Fab
-        onClick={onAddTask}
+        onClick={handleOpenNewGroupDialog}
         color="primary"
         size="large"
-        sx={{ position: "fixed", bottom: 26, right: 26 }}
+        sx={{ position: "fixed", bottom: 76, right: 26, zIndex: 1100 }}
+        title="Create Group"
       >
         <AddIcon fontSize="medium" />
       </Fab>
+
+      <Dialog open={newGroupDialogOpen} onClose={handleCloseNewGroupDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Create New Group</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Group Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newGroupName}
+            onChange={(e) => setNewGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleCreateGroup();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseNewGroupDialog}>Cancel</Button>
+          <Button onClick={handleCreateGroup} variant="contained" color="primary" disabled={!newGroupName.trim()}>
+            Create
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <DeleteDialog
         open={deleteDialogOpen}
         onClose={closeDeleteDialog}
         onConfirm={handleConfirmDelete}
-        itemText={itemToDeleteIndex !== null && items[itemToDeleteIndex] ? items[itemToDeleteIndex].text : ""}
+        itemText={itemToDelete ? itemToDelete.text : ""}
         textPrefix="Delete task:"
+      />
+
+      <GroupAssigner
+        anchorEl={assignerAnchorEl}
+        onClose={handleCloseGroupAssigner}
+        groups={groups}
+        currentGroupId={assignerTask?.groupId || null}
+        onAssignGroup={handleAssignGroup}
+        onCreateGroup={createGroup}
       />
     </Box>
   );
 };
 
-export default OrderedList;
+export default OrderedList;
