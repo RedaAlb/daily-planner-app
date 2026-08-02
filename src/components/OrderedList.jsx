@@ -6,7 +6,8 @@ import {
   Box,
   ListItemIcon,
   Checkbox,
-  Fab
+  Fab,
+  Typography
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -110,16 +111,16 @@ const ListItemComponent = memo(({
         />
 
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          <IconButton edge="end" onClick={() => onMoveToTop(index)} title="Move to top">
+          <IconButton edge="end" aria-label="Move to top" onClick={() => onMoveToTop(index)} title="Move to top">
             <ArrowUpwardIcon />
           </IconButton>
-          <IconButton edge="end" onClick={() => onMoveToBottom(index)} title="Move to bottom">
+          <IconButton edge="end" aria-label="Move to bottom" onClick={() => onMoveToBottom(index)} title="Move to bottom">
             <ArrowDownwardIcon />
           </IconButton>
-          <IconButton edge="end" onClick={() => onArchive(index)} sx={{ marginLeft: "10px" }} title="Archive">
+          <IconButton edge="end" aria-label="Archive" onClick={() => onArchive(index)} sx={{ marginLeft: "10px" }} title="Archive">
             <ArchiveIcon />
           </IconButton>
-          <IconButton edge="end" onClick={() => onDelete(index)} sx={{ marginLeft: "10px" }} title="Delete">
+          <IconButton edge="end" aria-label="Delete" onClick={() => onDelete(index)} sx={{ marginLeft: "10px" }} title="Delete">
             <DeleteIcon />
           </IconButton>
         </Box>
@@ -167,6 +168,11 @@ const OrderedList = () => {
         <Droppable droppableId="droppable-list">
           {(provided) => (
             <List {...provided.droppableProps} ref={provided.innerRef}>
+              {items.length === 0 && (
+                <Typography variant="body1" sx={{ textAlign: "center", mt: 4, color: "text.secondary" }}>
+                  No global tasks yet. Tap + to add one!
+                </Typography>
+              )}
               {items.map((item, index) => (
                 <Draggable key={item.id} draggableId={item.id} index={index}>
                   {(provided) => (

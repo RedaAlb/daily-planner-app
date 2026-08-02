@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ref, onValue, update, set, remove } from 'firebase/database';
+import { ref, onValue, update, set, remove, push } from 'firebase/database';
 import { appDb } from '../utils/Firebase';
 import { GLOBAL_TASKS_PATH, ARCHIVED_GLOBAL_TASKS_PATH } from '../utils/constants';
 
@@ -25,6 +25,7 @@ const useGlobalTasks = () => {
         setItems([]);
       }
     }, (error) => {
+      console.error("Firebase error fetching tasks:", error);
       setItems([]);
     });
 
@@ -42,6 +43,7 @@ const useGlobalTasks = () => {
         setArchivedItems([]);
       }
     }, (error) => {
+      console.error("Firebase error fetching archived tasks:", error);
       setArchivedItems([]);
     });
 
@@ -86,14 +88,14 @@ const useGlobalTasks = () => {
 
     const uncheckedItems = newItems.filter(item => !item.checked);
     const checkedItems = newItems.filter(item => item.checked);
-    checkedItems.unshift(movedItem);
 
-    const updatedItems = [...uncheckedItems, ...checkedItems];
+    const updatedItems = [...uncheckedItems, movedItem, ...checkedItems];
+    
     await updateItemsInDatabase(updatedItems);
   }, [items, updateItemsInDatabase]);
 
   const onAddTask = useCallback(async () => {
-    const newItemId = `${Date.now()}`;
+    const newItemId = push(ref(appDb, GLOBAL_TASKS_PATH)).key;
     const newItem = {
       id: newItemId,
       text: "",
@@ -152,8 +154,7 @@ const useGlobalTasks = () => {
   const unarchiveItem = useCallback(async (index) => {
     const itemToUnarchive = archivedItems[index];
 
-    const currentOrders = items.map(task => task.order);
-    const nextOrder = currentOrders.length > 0 ? Math.max(...currentOrders) + 1 : 0;
+    const nextOrder = items.length > 0 ? Math.max(0, ...items.map(t => t.order ?? 0)) + 1 : 0;
 
     const restoredTask = {
       ...itemToUnarchive,
