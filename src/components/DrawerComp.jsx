@@ -37,11 +37,6 @@ function DrawerComp(props) {
     navigate("/");
   }
 
-
-  const onGlobalClick = () => {
-    navigate(GLOBAL_TASKS_VIEW_PATH);
-  }
-
   const onGymWeightsClick = () => {
     navigate(GYM_WEIGHTS_VIEW_PATH);
   }
@@ -75,13 +70,6 @@ function DrawerComp(props) {
               <ListItemButton onClick={onDailyPlannerClick}>
                 <ListItemIcon> <TodayIcon /> </ListItemIcon>
                 <ListItemText primary="Daily Planner" />
-              </ListItemButton>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <ListItemButton onClick={onGlobalClick}>
-                <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
-                <ListItemText primary="Global Tasks" />
               </ListItemButton>
             </ListItem>
 

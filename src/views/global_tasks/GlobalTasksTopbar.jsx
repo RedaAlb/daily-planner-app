@@ -1,7 +1,7 @@
 import React from "react";
 import DrawerComp from "../../components/DrawerComp";
 
-import { MAIN_COLOUR, TOPBAR_LINE_HEIGHT } from "../../utils/constants";
+import { MAIN_COLOUR, TOPBAR_HEIGHT, TOPBAR_LINE_HEIGHT } from "../../utils/constants";
 
 
 function GlobalTasksTopbar(props) {
@@ -9,16 +9,17 @@ function GlobalTasksTopbar(props) {
     <div
       className="daily-planner-top"
       style={{
+        height: TOPBAR_HEIGHT,
+        display: "flex",
+        alignItems: "center",
         borderBottom: `${TOPBAR_LINE_HEIGHT} solid ${MAIN_COLOUR}`
       }}
     >
-
       <DrawerComp />
 
-      <h3 style={{ color: MAIN_COLOUR }}>
+      <h3 style={{ color: MAIN_COLOUR, margin: 0, marginLeft: "8px" }}>
         Global Tasks
       </h3>
-
     </div>
   )
 }
