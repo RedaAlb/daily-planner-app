@@ -7,7 +7,10 @@ import {
   ListItemIcon,
   Checkbox,
   Fab,
-  Typography
+  Typography,
+  Menu,
+  MenuItem,
+  ListItemText
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -18,6 +21,7 @@ import DragHandleIcon from "@mui/icons-material/DragHandle";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 
 import {
   DEFAULT_HORI_GAP,
@@ -46,10 +50,25 @@ const ListItemComponent = memo(({
   onDelete
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
 
   useEffect(() => {
     setLocalChecked(item.checked);
   }, [item.checked]);
+
+  const handleMenuClick = useCallback((event) => {
+    setAnchorEl(event.currentTarget);
+  }, []);
+
+  const handleMenuClose = useCallback(() => {
+    setAnchorEl(null);
+  }, []);
+
+  const handleAction = useCallback((actionFn) => {
+    actionFn(index);
+    handleMenuClose();
+  }, [index, handleMenuClose]);
 
   const handleTextChange = useCallback((value) => {
     onTextChange(index, value);
@@ -111,18 +130,39 @@ const ListItemComponent = memo(({
         />
 
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          <IconButton edge="end" aria-label="Move to top" onClick={() => onMoveToTop(index)} title="Move to top">
-            <ArrowUpwardIcon />
+          <IconButton edge="end" aria-label="more actions" onClick={handleMenuClick} title="More actions">
+            <MoreVertIcon />
           </IconButton>
-          <IconButton edge="end" aria-label="Move to bottom" onClick={() => onMoveToBottom(index)} title="Move to bottom">
-            <ArrowDownwardIcon />
-          </IconButton>
-          <IconButton edge="end" aria-label="Archive" onClick={() => onArchive(index)} sx={{ marginLeft: "10px" }} title="Archive">
-            <ArchiveIcon />
-          </IconButton>
-          <IconButton edge="end" aria-label="Delete" onClick={() => onDelete(index)} sx={{ marginLeft: "10px" }} title="Delete">
-            <DeleteIcon />
-          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={menuOpen}
+            onClose={handleMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <MenuItem onClick={() => handleAction(onMoveToTop)}>
+              <ListItemIcon><ArrowUpwardIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Move to top</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleAction(onMoveToBottom)}>
+              <ListItemIcon><ArrowDownwardIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Move to bottom</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleAction(onArchive)}>
+              <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>Archive</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleAction(onDelete)} sx={{ color: 'error.main' }}>
+              <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+              <ListItemText>Delete</ListItemText>
+            </MenuItem>
+          </Menu>
         </Box>
       </div>
     </ListItem>
