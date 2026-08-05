@@ -32,6 +32,12 @@ import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderIcon from '@mui/icons-material/Folder';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import gbLocale from "date-fns/locale/en-GB";
 
 import {
   DEFAULT_HORI_GAP,
@@ -41,6 +47,7 @@ import {
   TASK_ITEM_MIN_HEIGHT
 } from "../utils/constants";
 
+import { moveGlobalTaskToDailyPlanner } from "../utils/Firebase";
 import useDebounce from "../hooks/useDebounce";
 import useGlobalTasks from "../hooks/useGlobalTasks";
 import DeleteDialog from "./ui/DeleteDialog";
@@ -62,6 +69,7 @@ const ListItemComponent = memo(({
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const menuOpen = Boolean(anchorEl);
 
   useEffect(() => {
@@ -75,6 +83,17 @@ const ListItemComponent = memo(({
   const handleMenuClose = useCallback(() => {
     setAnchorEl(null);
   }, []);
+
+  const handleOpenDatePicker = useCallback(() => {
+    handleMenuClose();
+    setDatePickerOpen(true);
+  }, [handleMenuClose]);
+
+  const handleMoveToDate = useCallback(async (targetDate) => {
+    if (!targetDate) return;
+    setDatePickerOpen(false);
+    await moveGlobalTaskToDailyPlanner(item, targetDate);
+  }, [item]);
 
   const handleAction = useCallback((actionFn) => {
     actionFn(item.id);
@@ -145,8 +164,28 @@ const ListItemComponent = memo(({
           }}
         />
 
+        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={gbLocale}>
+          <MobileDatePicker
+            open={datePickerOpen}
+            onClose={() => setDatePickerOpen(false)}
+            onChange={(newDate) => handleMoveToDate(newDate)}
+            renderInput={() => <span style={{ display: 'none' }} />}
+            value={new Date()}
+            DialogProps={{ disableScrollLock: true }}
+          />
+        </LocalizationProvider>
+
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, ml: 1 }}>
-          {(!item.groupId) && (
+          {item.groupId ? (
+            <IconButton 
+              size="small"
+              onClick={() => setDatePickerOpen(true)} 
+              title="Move to date..."
+              sx={{ color: MAIN_COLOUR, padding: '4px' }}
+            >
+              <CalendarTodayIcon fontSize="small" />
+            </IconButton>
+          ) : (
             <IconButton 
               size="small"
               onClick={(e) => onOpenGroupAssigner(e, item.id)} 
@@ -186,13 +225,18 @@ const ListItemComponent = memo(({
               <ListItemIcon><ArrowDownwardIcon fontSize="small" /></ListItemIcon>
               <ListItemText>Move to bottom</ListItemText>
             </MenuItem>
-            {item.groupId && (
+            {item.groupId ? (
               <MenuItem onClick={() => {
                 onOpenGroupAssigner({ currentTarget: anchorEl }, item.id);
                 handleMenuClose();
               }}>
                 <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>Move to group</ListItemText>
+              </MenuItem>
+            ) : (
+              <MenuItem onClick={handleOpenDatePicker}>
+                <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Move to date...</ListItemText>
               </MenuItem>
             )}
             <MenuItem onClick={() => handleAction(onDelete)} sx={{ color: 'error.main' }}>
@@ -470,6 +514,26 @@ const OrderedList = ({
                     {group.name}
                   </Typography>
                   <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+                    {group.items.length > 0 && (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: 'text.secondary', 
+                          mr: 1, 
+                          fontWeight: 'bold',
+                          bgcolor: 'rgba(0,0,0,0.06)',
+                          borderRadius: '50%',
+                          width: '22px',
+                          height: '22px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          lineHeight: 1
+                        }}
+                      >
+                        {group.items.length}
+                      </Typography>
+                    )}
                     <IconButton 
                       size="small" 
                       onClick={(e) => { 
@@ -568,6 +632,26 @@ const OrderedList = ({
                               {group.name}
                             </Typography>
                             <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+                              {group.items.length > 0 && (
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    color: 'text.secondary', 
+                                    mr: 1, 
+                                    fontWeight: 'bold',
+                                    bgcolor: 'rgba(0,0,0,0.06)',
+                                    borderRadius: '50%',
+                                    width: '22px',
+                                    height: '22px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    lineHeight: 1
+                                  }}
+                                >
+                                  {group.items.length}
+                                </Typography>
+                              )}
                               <IconButton 
                                 size="small" 
                                 onClick={(e) => { 

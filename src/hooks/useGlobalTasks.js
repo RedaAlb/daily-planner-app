@@ -18,7 +18,12 @@ const useGlobalTasks = () => {
             id,
             ...value
           }))
-          .sort((a, b) => a.order - b.order);
+          .sort((a, b) => {
+            if (a.order === b.order) {
+              return (b.createdAt || 0) - (a.createdAt || 0);
+            }
+            return (a.order || 0) - (b.order || 0);
+          });
         setItems(taskArray);
       } else {
         setItems([]);

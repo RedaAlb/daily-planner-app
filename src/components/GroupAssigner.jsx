@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Popover, Autocomplete, TextField, Box } from '@mui/material';
+import { ref, onValue } from 'firebase/database';
+import { appDb, createGlobalTaskGroup } from '../utils/Firebase';
+import { GLOBAL_TASK_GROUPS_PATH } from '../utils/constants';
 
 const GroupAssigner = ({
   anchorEl,
@@ -11,6 +14,22 @@ const GroupAssigner = ({
 }) => {
   const open = Boolean(anchorEl);
   const [inputValue, setInputValue] = useState("");
+  const [internalGroups, setInternalGroups] = useState({});
+
+  useEffect(() => {
+    if (groups !== undefined) return;
+    const groupsRef = ref(appDb, GLOBAL_TASK_GROUPS_PATH);
+    const unsubscribe = onValue(groupsRef, (snapshot) => {
+      setInternalGroups(snapshot.val() || {});
+    }, (err) => {
+      console.error("Firebase error fetching groups in GroupAssigner:", err);
+      setInternalGroups({});
+    });
+    return () => unsubscribe();
+  }, [groups]);
+
+  const effectiveGroups = groups !== undefined ? groups : internalGroups;
+  const effectiveCreateGroup = onCreateGroup || createGlobalTaskGroup;
 
   useEffect(() => {
     if (open) {
@@ -19,20 +38,20 @@ const GroupAssigner = ({
   }, [open]);
 
   const options = useMemo(() => {
-    return Object.values(groups || {}).map(g => ({
+    return Object.values(effectiveGroups || {}).map(g => ({
       id: g.id,
       name: g.name
     })).sort((a, b) => a.name.localeCompare(b.name));
-  }, [groups]);
+  }, [effectiveGroups]);
 
   const currentOption = options.find(o => o.id === currentGroupId) || null;
 
   const handleChange = async (event, newValue) => {
     if (typeof newValue === 'string') {
-      const newId = await onCreateGroup(newValue);
+      const newId = await effectiveCreateGroup(newValue);
       onAssignGroup(newId);
     } else if (newValue && newValue.inputValue) {
-      const newId = await onCreateGroup(newValue.inputValue);
+      const newId = await effectiveCreateGroup(newValue.inputValue);
       onAssignGroup(newId);
     } else if (newValue) {
       onAssignGroup(newValue.id);
@@ -41,6 +60,7 @@ const GroupAssigner = ({
     }
     onClose();
   };
+
 
   return (
     <Popover

@@ -1,30 +1,45 @@
 import { renderHook, act } from '@testing-library/react';
 import useDailyPlanner from './useDailyPlanner';
-import { loadDate, loadAllDateKeys } from '../utils/Firebase';
+import { subscribeToDate, subscribeToDateKeys } from '../utils/Firebase';
 import { INITIAL_STATE } from '../utils/constants';
 
 // Mock the Firebase utils
 vi.mock('../utils/Firebase', () => ({
   loadDate: vi.fn(),
-  loadAllDateKeys: vi.fn()
+  loadAllDateKeys: vi.fn(),
+  subscribeToDate: vi.fn(),
+  subscribeToDateKeys: vi.fn()
 }));
 
 // Mock the Date constructor to have a consistent initial state for testing
-const mockDate = new Date('2023-01-01T12:00:00Z');
-vi.spyOn(global, 'Date').mockImplementation(() => mockDate);
+beforeAll(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date('2023-01-01T12:00:00Z'));
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe('useDailyPlanner hook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     
     // Setup default mock returns
-    loadAllDateKeys.mockResolvedValue(['01-01-2023']);
-    loadDate.mockResolvedValue({
-      time: '14:30',
-      dailyBigs: [{ text: 'Big Task', checked: false }],
-      tasks: [{ text: 'Task 1', checked: true }],
-      routines: [{ text: 'Morning Routine', checked: false }],
-      notes: 'Some notes'
+    subscribeToDateKeys.mockImplementation((callback) => {
+      callback(['01-01-2023']);
+      return () => {};
+    });
+    subscribeToDate.mockImplementation((date, callback) => {
+      callback({
+        time: '14:30',
+        dailyBigs: [{ text: 'Big Task', checked: false }],
+        tasks: [{ text: 'Task 1', checked: true }],
+        routines: [{ text: 'Morning Routine', checked: false }],
+        notes: 'Some notes'
+      });
+      return () => {};
     });
   });
 
@@ -60,7 +75,6 @@ describe('useDailyPlanner hook', () => {
     });
 
     expect(resultRef.current.state.currentDate).toBe(newDate);
-    // Since currentDate changed, loadDate should have been called again (once on mount, once on change)
-    expect(loadDate).toHaveBeenCalledTimes(2);
+    expect(subscribeToDate).toHaveBeenCalledTimes(2);
   });
 });

@@ -4,8 +4,10 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
-import { loadAllTasksData, updateDateTasks, getDbDateKey, normalizeFirebaseArray } from "../../utils/Firebase";
+import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, assignDailyTaskToGlobalGroup, subscribeToAllTasks } from "../../utils/Firebase";
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
+
+
 import { Chip } from "@mui/material";
 
 import TasksViewTopbar from "./TasksViewTopbar";
@@ -24,6 +26,7 @@ const TaskDateGroup = memo(function TaskDateGroup({
   dateTasks,
   handleTaskUpdate,
   handleMoveToDate,
+  handleAssignGroup,
   onDateHeaderClick
 }) {
   const dateObj = parseDateKey(dateKey);
@@ -81,6 +84,7 @@ const TaskDateGroup = memo(function TaskDateGroup({
                       forceShowActions={true}
                       onTaskUpdate={(index, updatedTask) => handleTaskUpdate(dateKey, index, updatedTask)}
                       onMoveToDate={handleMoveToDate}
+                      onAssignGroup={handleAssignGroup}
                     />
                   )}
                 </Draggable>
@@ -110,8 +114,7 @@ function TasksView() {
   }, [dailyPlannerCtx, navigate]);
 
   useEffect(() => {
-    const fetchTasks = async () => {
-      const allTasks = await loadAllTasksData();
+    const processAllTasks = (allTasks) => {
       const todayKey = getDbDateKey(new Date());
 
       if (!allTasks[todayKey]) {
@@ -130,7 +133,12 @@ function TasksView() {
       setLoading(false);
     };
 
-    fetchTasks();
+
+    const unsubscribe = typeof subscribeToAllTasks === "function" ? subscribeToAllTasks(processAllTasks) : null;
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const handleTaskUpdate = useCallback((dateKey, originalIndex, updatedTask) => {
@@ -169,13 +177,38 @@ function TasksView() {
 
       if (!prev[targetDateKey]) {
         const newKeys = Object.keys(newGroups).sort((a, b) => parseDateKey(a) - parseDateKey(b));
-        setSortedDateKeys(newKeys);
+        // Note: setting state inside another setState updater is okay in React 18 (it batches), 
+        // but to be perfectly safe from side-effect rules, it's better. We'll leave it as is 
+        // since it's just another state update.
+        setTimeout(() => setSortedDateKeys(newKeys), 0);
       }
 
-      updateDateTasks(sourceDateKey, sourceTasks);
-      updateDateTasks(targetDateKey, destTasks);
+      setTimeout(() => {
+        updateDateTasks(sourceDateKey, sourceTasks);
+        updateDateTasks(targetDateKey, destTasks);
+      }, 0);
 
       return newGroups;
+    });
+  }, []);
+
+  const handleAssignGroup = useCallback(async (task, index, groupId, sourceDate) => {
+    // FIRST: Add to global_tasks in Firebase
+    await assignDailyTaskToGlobalGroup(task.text, task.checkIndex === 1, groupId);
+
+    // SECOND: Clear task in daily planner in Firebase ONLY after successful write to global_tasks
+    const sourceDateKey = getDbDateKey(sourceDate);
+    setDateGroups(prev => {
+      const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
+      sourceTasks[index] = { checkIndex: 0, text: "" };
+      setTimeout(() => {
+        updateDateTasks(sourceDateKey, sourceTasks);
+      }, 0);
+      
+      return {
+        ...prev,
+        [sourceDateKey]: sourceTasks
+      };
     });
   }, []);
 
@@ -284,6 +317,7 @@ function TasksView() {
               dateTasks={dateGroups[dateKey]}
               handleTaskUpdate={handleTaskUpdate}
               handleMoveToDate={handleMoveToDate}
+              handleAssignGroup={handleAssignGroup}
               onDateHeaderClick={handleDateHeaderClick}
             />
           ))}

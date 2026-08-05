@@ -2,12 +2,13 @@ import React from 'react';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TasksView from './TasksView';
-import { loadAllTasksData, updateDateTasks } from '../../utils/Firebase';
+import { updateDateTasks, subscribeToAllTasks } from '../../utils/Firebase';
 import { BrowserRouter } from 'react-router-dom';
 
 vi.mock('../../utils/Firebase', () => ({
-  loadAllTasksData: vi.fn(),
   updateDateTasks: vi.fn(),
+  subscribeToAllTasks: vi.fn(),
+  assignDailyTaskToGlobalGroup: vi.fn().mockResolvedValue('new-global-id'),
   normalizeFirebaseArray: vi.fn((data) => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
@@ -48,7 +49,7 @@ vi.mock('react-beautiful-dnd', () => ({
 // Mock DailyTaskItem
 vi.mock('../dailyplanner_view/DailyTaskItem', () => ({
   __esModule: true,
-  default: ({ task, onMoveToDate, onTaskUpdate }) => (
+  default: ({ task, onMoveToDate, onTaskUpdate, onAssignGroup, date }) => (
     <div data-testid={`task-${task.text}`}>
       <span>{task.text}</span>
       <button 
@@ -56,6 +57,18 @@ vi.mock('../dailyplanner_view/DailyTaskItem', () => ({
         onClick={() => onTaskUpdate(0, { ...task, text: task.text + " updated" })}
       >
         Update
+      </button>
+      <button 
+        data-testid={`move-btn-${task.text}`} 
+        onClick={() => onMoveToDate(task, 0, new Date('2026-06-25'), date)}
+      >
+        Move
+      </button>
+      <button 
+        data-testid={`assign-btn-${task.text}`} 
+        onClick={() => onAssignGroup(task, 0, 'group-123', date)}
+      >
+        Assign
       </button>
     </div>
   )
@@ -90,7 +103,10 @@ const customRender = (ui) => {
 describe('TasksView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    loadAllTasksData.mockResolvedValue(mockData);
+    subscribeToAllTasks.mockImplementation((callback) => {
+      callback(mockData);
+      return () => {};
+    });
   });
 
   it('fetches and renders only incomplete tasks', async () => {
@@ -128,5 +144,71 @@ describe('TasksView', () => {
       { text: "Migrated Task", checkIndex: 2 },
       { text: "", checkIndex: 0 }
     ]));
+  });
+  it('calls updateDateTasks correctly when a task is moved to another date', async () => {
+    vi.useFakeTimers();
+    await act(async () => {
+      customRender(<TasksView />);
+    });
+
+    const moveBtn = screen.getByTestId('move-btn-Incomplete Task');
+    
+    await act(async () => {
+      fireEvent.click(moveBtn);
+    });
+    
+    act(() => {
+      vi.runAllTimers();
+    });
+
+    // It should update the source date (22-6-2026) to clear the task
+    expect(updateDateTasks).toHaveBeenCalledWith("22-6-2026", expect.arrayContaining([
+      expect.objectContaining({ text: "", checkIndex: 0 }),
+      { text: "Completed Task", checkIndex: 1 },
+      { text: "Migrated Task", checkIndex: 2 },
+      { text: "", checkIndex: 0 }
+    ]));
+    
+    // It should update the target date (25-6-2026) to include the task
+    expect(updateDateTasks).toHaveBeenCalledWith("25-6-2026", expect.arrayContaining([
+      expect.objectContaining({ text: "Incomplete Task", checkIndex: 0 })
+    ]));
+    vi.useRealTimers();
+  });
+
+  it('calls assignDailyTaskToGlobalGroup and updateDateTasks when assigning to a group', async () => {
+    vi.useFakeTimers();
+    await act(async () => {
+      customRender(<TasksView />);
+    });
+
+    const assignBtn = screen.getByTestId('assign-btn-Incomplete Task');
+    
+    await act(async () => {
+      fireEvent.click(assignBtn);
+    });
+    
+    // Wait for promise resolution from async function
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    act(() => {
+      vi.runAllTimers(); 
+    });
+
+    const { assignDailyTaskToGlobalGroup } = await import('../../utils/Firebase');
+    
+    // Should add to global group
+    expect(assignDailyTaskToGlobalGroup).toHaveBeenCalledWith("Incomplete Task", false, 'group-123');
+
+    // Should clear from daily planner
+    expect(updateDateTasks).toHaveBeenCalledWith("22-6-2026", expect.arrayContaining([
+      expect.objectContaining({ text: "", checkIndex: 0 }),
+      { text: "Completed Task", checkIndex: 1 },
+      { text: "Migrated Task", checkIndex: 2 },
+      { text: "", checkIndex: 0 }
+    ]));
+    vi.useRealTimers();
   });
 });

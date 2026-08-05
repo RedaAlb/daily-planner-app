@@ -3,7 +3,7 @@ import * as db from "firebase/database";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 import { ADD_DATE_KEY, SET_TIME } from "../views/dailyplanner_view/context/dailyplanner-actions";
-import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME, DEFAULT_TASKS } from "./constants";
+import { DATE_KEYS_PATH, DAILYBIGS_PATH, NOTES_PATH, ROUTINES_PATH, TASKS_PATH, TIME_PATH, DATE_SAVE_LOCATION, LOCATION_PATH, EXPORTS_DIR_NAME, DEFAULT_TASKS, GLOBAL_TASKS_PATH, GLOBAL_TASK_GROUPS_PATH, NUM_TASK_ITEMS } from "./constants";
 
 
 const hasFirebaseConfig = Boolean(process.env.REACT_APP_PROJECT_ID && process.env.REACT_APP_DATABASE_URL);
@@ -111,11 +111,79 @@ export const loadAllDateKeys = async () => {
   return [];
 }
 
+export const subscribeToDate = (date, callback) => {
+  const dateKey = getDbDateKey(date);
+  const dateRef = db.ref(appDb, `/${dateKey}/`);
+
+  const unsubscribe = db.onValue(dateRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.val() || {};
+      if (data[TASKS_PATH]) data[TASKS_PATH] = normalizeFirebaseArray(data[TASKS_PATH]);
+      if (data[DAILYBIGS_PATH]) data[DAILYBIGS_PATH] = normalizeFirebaseArray(data[DAILYBIGS_PATH]);
+      if (data[ROUTINES_PATH]) data[ROUTINES_PATH] = normalizeFirebaseArray(data[ROUTINES_PATH]);
+      callback(data);
+    } else {
+      callback({});
+    }
+  }, (error) => {
+    if (!error?.message?.includes("Permission denied")) {
+      console.error("Firebase subscribeToDate error:", error);
+    }
+  });
+
+  return unsubscribe;
+};
+
+export const subscribeToDateKeys = (callback) => {
+  const dateKeysRef = db.ref(appDb, DATE_KEYS_PATH);
+
+  const unsubscribe = db.onValue(dateKeysRef, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(Object.keys(snapshot.val() || {}));
+    } else {
+      callback([]);
+    }
+  }, (error) => {
+    if (!error?.message?.includes("Permission denied")) {
+      console.error("Firebase subscribeToDateKeys error:", error);
+    }
+  });
+
+  return unsubscribe;
+};
+
+export const subscribeToAllTasks = (callback) => {
+  const rootRef = db.ref(appDb, "/");
+
+  const unsubscribe = db.onValue(rootRef, (snapshot) => {
+    const allData = {};
+    if (snapshot.exists()) {
+      const dbData = snapshot.val() || {};
+      const dateKeys = dbData[DATE_KEYS_PATH] ? Object.keys(dbData[DATE_KEYS_PATH]) : [];
+
+      dateKeys.forEach(dateKey => {
+        if (dbData[dateKey] && dbData[dateKey][TASKS_PATH]) {
+          const rawTasks = dbData[dateKey][TASKS_PATH];
+          allData[dateKey] = normalizeFirebaseArray(rawTasks);
+        }
+      });
+    }
+    callback(allData);
+  }, (error) => {
+    if (!error?.message?.includes("Permission denied")) {
+      console.error("Firebase subscribeToAllTasks error:", error);
+    }
+  });
+
+  return unsubscribe;
+};
+
+
 
 export const updateRoutine = (date, routineIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${ROUTINES_PATH}/${routineIndex}/`), newData).catch((err) => {
+  return db.set(db.ref(appDb, `${dateKey}/${ROUTINES_PATH}/${routineIndex}/`), newData).catch((err) => {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
   });
 }
@@ -124,7 +192,7 @@ export const updateRoutine = (date, routineIndex, newData) => {
 export const updateDailyBig = (date, dailyBigIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${DAILYBIGS_PATH}/${dailyBigIndex}/`), newData).catch((err) => {
+  return db.set(db.ref(appDb, `${dateKey}/${DAILYBIGS_PATH}/${dailyBigIndex}/`), newData).catch((err) => {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
   });
 }
@@ -133,7 +201,7 @@ export const updateDailyBig = (date, dailyBigIndex, newData) => {
 export const updateTask = (date, taskIndex, newData) => {
   const dateKey = getDbDateKey(date);
 
-  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/${taskIndex}/`), newData).catch((err) => {
+  return db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/${taskIndex}/`), newData).catch((err) => {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
   });
 }
@@ -144,10 +212,86 @@ export const updateDateTasks = (dateKey, tasks) => {
     ? tasks.map(t => t || { checkIndex: 0, text: "" })
     : tasks;
 
-  db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), sanitizedTasks).catch((err) => {
+  return db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), sanitizedTasks).catch((err) => {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
   });
 };
+
+export const ensureDateKeyExists = async (dateKey) => {
+  if (!dateKey) return;
+  try {
+    const snapshot = await db.get(db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`));
+    if (!snapshot.exists()) {
+      const dateKeysRef = db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`);
+      const newDateKeyRef = db.push(dateKeysRef);
+      await db.set(newDateKeyRef, dateKey);
+    }
+  } catch (error) {
+    console.warn("Firebase ensureDateKeyExists failed:", error?.message || error);
+  }
+};
+
+export const createGlobalTaskGroup = async (name) => {
+  const newGroupId = db.push(db.ref(appDb, GLOBAL_TASK_GROUPS_PATH)).key;
+  const newGroup = {
+    id: newGroupId,
+    name,
+    order: 0,
+    createdAt: Date.now()
+  };
+  await db.set(db.ref(appDb, `${GLOBAL_TASK_GROUPS_PATH}/${newGroupId}`), newGroup);
+  return newGroupId;
+};
+
+export const assignDailyTaskToGlobalGroup = async (taskText, isChecked, groupId) => {
+  const newTaskId = db.push(db.ref(appDb, GLOBAL_TASKS_PATH)).key;
+  const newTask = {
+    id: newTaskId,
+    text: taskText || "",
+    checked: Boolean(isChecked),
+    order: 0,
+    groupId: groupId || null,
+    createdAt: Date.now()
+  };
+  await db.set(db.ref(appDb, `${GLOBAL_TASKS_PATH}/${newTaskId}`), newTask);
+  return newTaskId;
+};
+
+export const moveGlobalTaskToDailyPlanner = async (globalTask, targetDate) => {
+  if (!globalTask || !targetDate) return false;
+
+  const targetDateKey = getDbDateKey(targetDate);
+  const targetDateData = await loadDate(targetDate);
+  const rawTargetTasks = targetDateData[TASKS_PATH];
+  
+  const targetTasks = rawTargetTasks && Array.isArray(rawTargetTasks) && rawTargetTasks.length > 0
+    ? [...rawTargetTasks]
+    : Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
+
+  const taskToMove = {
+    checkIndex: globalTask.checked ? 1 : 0,
+    text: globalTask.text || ""
+  };
+
+  let emptyIndex = targetTasks.findIndex(t => !t || !t.text || t.text === "");
+  if (emptyIndex !== -1) {
+    targetTasks[emptyIndex] = taskToMove;
+  } else {
+    targetTasks.push(taskToMove);
+  }
+
+  // FIRST: Save to daily planner in Firebase
+  await updateDateTasks(targetDateKey, targetTasks);
+  await ensureDateKeyExists(targetDateKey);
+
+  // SECOND: Delete from global_tasks in Firebase ONLY after successful write
+  if (globalTask.id) {
+    await db.remove(db.ref(appDb, `${GLOBAL_TASKS_PATH}/${globalTask.id}`));
+  }
+
+  return true;
+};
+
 
 export const normalizeFirebaseArray = (data) => {
   if (!data) return [];
