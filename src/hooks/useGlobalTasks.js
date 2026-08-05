@@ -1,16 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, update, set, remove, push } from 'firebase/database';
 import { appDb } from '../utils/Firebase';
-import { GLOBAL_TASKS_PATH, ARCHIVED_GLOBAL_TASKS_PATH, GLOBAL_TASK_GROUPS_PATH } from '../utils/constants';
+import { GLOBAL_TASKS_PATH, GLOBAL_TASK_GROUPS_PATH } from '../utils/constants';
 
 const useGlobalTasks = () => {
   const [items, setItems] = useState([]);
-  const [archivedItems, setArchivedItems] = useState([]);
   const [groups, setGroups] = useState({});
 
   useEffect(() => {
     const tasksRef = ref(appDb, GLOBAL_TASKS_PATH);
-    const archivedTasksRef = ref(appDb, ARCHIVED_GLOBAL_TASKS_PATH);
 
     const tasksListener = onValue(tasksRef, (snapshot) => {
       const data = snapshot.val();
@@ -30,23 +28,6 @@ const useGlobalTasks = () => {
       setItems([]);
     });
 
-    const archivedListener = onValue(archivedTasksRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const archivedArray = Object.entries(data)
-          .map(([id, value]) => ({
-            id,
-            ...value
-          }))
-          .sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
-        setArchivedItems(archivedArray);
-      } else {
-        setArchivedItems([]);
-      }
-    }, (error) => {
-      console.error("Firebase error fetching archived tasks:", error);
-      setArchivedItems([]);
-    });
 
     const groupsRef = ref(appDb, GLOBAL_TASK_GROUPS_PATH);
     const groupsListener = onValue(groupsRef, (snapshot) => {
@@ -63,7 +44,6 @@ const useGlobalTasks = () => {
 
     return () => {
       tasksListener();
-      archivedListener();
       groupsListener();
     };
   }, []);
@@ -190,22 +170,6 @@ const useGlobalTasks = () => {
     }
   }, [items]);
 
-  const archiveItem = useCallback(async (taskId) => {
-    const itemToArchive = items.find(i => i.id === taskId);
-    if (!itemToArchive) return;
-
-    const archivedItem = {
-      ...itemToArchive,
-      archivedAt: Date.now()
-    };
-
-    await set(ref(appDb, `${ARCHIVED_GLOBAL_TASKS_PATH}/${itemToArchive.id}`), archivedItem);
-    await remove(ref(appDb, `${GLOBAL_TASKS_PATH}/${itemToArchive.id}`));
-
-    const remainingItems = items.filter(i => i.id !== taskId);
-    await updateItemsInDatabase(remainingItems);
-  }, [items, updateItemsInDatabase]);
-
   const confirmDelete = useCallback(async (taskId) => {
     const itemToDelete = items.find(i => i.id === taskId);
     if (itemToDelete) {
@@ -214,31 +178,6 @@ const useGlobalTasks = () => {
       await updateItemsInDatabase(remainingItems);
     }
   }, [items, updateItemsInDatabase]);
-
-  const unarchiveItem = useCallback(async (index) => {
-    const itemToUnarchive = archivedItems[index];
-
-    const nextOrder = items.length > 0 ? Math.max(0, ...items.map(t => t.order ?? 0)) + 1 : 0;
-
-    const restoredTask = {
-      ...itemToUnarchive,
-      order: nextOrder,
-    };
-    delete restoredTask.archivedAt;
-
-    const updates = {};
-    updates[`${GLOBAL_TASKS_PATH}/${itemToUnarchive.id}`] = restoredTask;
-    updates[`${ARCHIVED_GLOBAL_TASKS_PATH}/${itemToUnarchive.id}`] = null;
-
-    await update(ref(appDb), updates);
-  }, [archivedItems, items]);
-
-  const deleteArchivedItem = useCallback(async (index) => {
-    const itemToDelete = archivedItems[index];
-    if (itemToDelete) {
-      await remove(ref(appDb, `${ARCHIVED_GLOBAL_TASKS_PATH}/${itemToDelete.id}`));
-    }
-  }, [archivedItems]);
 
   const createGroup = useCallback(async (name) => {
     const newGroupId = push(ref(appDb, GLOBAL_TASK_GROUPS_PATH)).key;
@@ -262,9 +201,32 @@ const useGlobalTasks = () => {
     }
   }, [items]);
 
+  const renameGroup = useCallback(async (groupId, newName) => {
+    if (!groups[groupId]) return;
+    await set(ref(appDb, `${GLOBAL_TASK_GROUPS_PATH}/${groupId}`), {
+      ...groups[groupId],
+      name: newName
+    });
+  }, [groups]);
+
+  const deleteGroup = useCallback(async (groupId) => {
+    const updates = {};
+
+    // Unassign all tasks from this group
+    items.forEach(item => {
+      if (item.groupId === groupId) {
+        updates[`${GLOBAL_TASKS_PATH}/${item.id}/groupId`] = null;
+      }
+    });
+
+    // Remove the group itself
+    updates[`${GLOBAL_TASK_GROUPS_PATH}/${groupId}`] = null;
+
+    await update(ref(appDb), updates);
+  }, [items, groups]);
+
   return {
     items,
-    archivedItems,
     groups,
     handleDragEnd,
     moveToTop,
@@ -272,12 +234,11 @@ const useGlobalTasks = () => {
     onAddTask,
     toggleCheckbox,
     handleTextChange,
-    archiveItem,
     confirmDelete,
-    unarchiveItem,
-    deleteArchivedItem,
     createGroup,
-    assignGroup
+    assignGroup,
+    renameGroup,
+    deleteGroup
   };
 };
 

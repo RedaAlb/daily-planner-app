@@ -2,7 +2,6 @@
 export const SETTINGS_VIEW_PATH = "/settings";
 export const GLOBAL_TASKS_VIEW_PATH = "/globaltasks";
 export const GYM_WEIGHTS_VIEW_PATH = "/gymweights"
-export const ARCHIVED_TASKS_VIEW_PATH = "/archivedtasks"
 export const TASKS_VIEW_PATH = "/tasks"
 
 
@@ -79,7 +78,6 @@ export const TIME_PATH = "time";
 export const DATE_KEYS_PATH = "dateKeys";
 export const LOCATION_PATH = "location";
 export const GLOBAL_TASKS_PATH = "global_tasks";
-export const ARCHIVED_GLOBAL_TASKS_PATH = "archived_global_tasks";
 export const GLOBAL_TASK_GROUPS_PATH = "global_task_groups";
 export const WORKOUTS_PATH = "workouts";
 

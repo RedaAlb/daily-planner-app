@@ -16,6 +16,7 @@ function ConfirmDialog(props) {
 
   return (
     <Dialog
+      disableScrollLock={true}
       open={props.dialogOpen}
       onClose={onDialogClose}
     >

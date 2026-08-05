@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 
 const DeleteDialog = memo(({ open, onClose, onConfirm, itemText, title="Confirm deletion", textPrefix="Delete item:" }) => (
-  <Dialog open={open} onClose={onClose}>
+  <Dialog disableScrollLock={true} open={open} onClose={onClose}>
     <DialogTitle>{title}</DialogTitle>
     <DialogContent>
       <DialogContentText>

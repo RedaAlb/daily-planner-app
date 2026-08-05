@@ -24,15 +24,14 @@ import {
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import ArchiveIcon from "@mui/icons-material/Archive";
 import DeleteIcon from "@mui/icons-material/Delete";
+import EditIcon from '@mui/icons-material/Edit';
 import DragHandleIcon from "@mui/icons-material/DragHandle";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderIcon from '@mui/icons-material/Folder';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 import {
   DEFAULT_HORI_GAP,
@@ -57,9 +56,9 @@ const ListItemComponent = memo(({
   onTextChange,
   onMoveToTop,
   onMoveToBottom,
-  onArchive,
   onDelete,
-  onOpenGroupAssigner
+  onOpenGroupAssigner,
+  showTaskDragHandles = true
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -111,17 +110,20 @@ const ListItemComponent = memo(({
           alignItems: "center",
           borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
           minHeight: TASK_ITEM_MIN_HEIGHT,
-          width: "-webkit-fill-available",
-          paddingLeft: "10px",
-          paddingRight: DEFAULT_HORI_GAP,
+          width: "100%",
+          paddingLeft: showTaskDragHandles ? 0 : "10px",
+          paddingRight: "12px",
+          boxSizing: "border-box"
         }}
       >
-        <ListItemIcon
-          {...provided.dragHandleProps}
-          sx={{ cursor: "grab", minWidth: "auto", paddingRight: "5px" }}
-        >
-          <DragHandleIcon />
-        </ListItemIcon>
+        {showTaskDragHandles && (
+          <Box
+            {...provided.dragHandleProps}
+            sx={{ display: 'flex', alignItems: 'center', cursor: "grab", pl: "10px", pr: "5px", color: MAIN_COLOUR }}
+          >
+            <DragHandleIcon />
+          </Box>
+        )}
 
         <Checkbox
           checked={localChecked}
@@ -135,20 +137,35 @@ const ListItemComponent = memo(({
           value={item.text}
           onChange={handleTextChange}
           style={{
+            flex: 1,
+            minWidth: 0,
             width: "100%",
             overflow: "hidden",
             fontSize: SECONDARY_FONT_SIZE
           }}
         />
 
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-          <IconButton edge="end" aria-label="assign group" onClick={(e) => onOpenGroupAssigner(e, item.id)} title="Assign Group">
-            <FolderIcon />
-          </IconButton>
-          <IconButton edge="end" aria-label="more actions" onClick={handleMenuClick} title="More actions">
-            <MoreVertIcon />
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, ml: 1 }}>
+          {(!item.groupId) && (
+            <IconButton 
+              size="small"
+              onClick={(e) => onOpenGroupAssigner(e, item.id)} 
+              title="Assign Group"
+              sx={{ color: MAIN_COLOUR, padding: '4px' }}
+            >
+              <FolderIcon fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton 
+            size="small"
+            onClick={handleMenuClick} 
+            title="More actions"
+            sx={{ color: MAIN_COLOUR, padding: '4px' }}
+          >
+            <MoreVertIcon fontSize="small" />
           </IconButton>
           <Menu
+            disableScrollLock={true}
             anchorEl={anchorEl}
             open={menuOpen}
             onClose={handleMenuClose}
@@ -169,10 +186,15 @@ const ListItemComponent = memo(({
               <ListItemIcon><ArrowDownwardIcon fontSize="small" /></ListItemIcon>
               <ListItemText>Move to bottom</ListItemText>
             </MenuItem>
-            <MenuItem onClick={() => handleAction(onArchive)}>
-              <ListItemIcon><ArchiveIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Archive</ListItemText>
-            </MenuItem>
+            {item.groupId && (
+              <MenuItem onClick={() => {
+                onOpenGroupAssigner({ currentTarget: anchorEl }, item.id);
+                handleMenuClose();
+              }}>
+                <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Move to group</ListItemText>
+              </MenuItem>
+            )}
             <MenuItem onClick={() => handleAction(onDelete)} sx={{ color: 'error.main' }}>
               <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
               <ListItemText>Delete</ListItemText>
@@ -184,7 +206,12 @@ const ListItemComponent = memo(({
   );
 });
 
-const OrderedList = () => {
+const OrderedList = ({
+  showGroupDragHandles = false,
+  showTaskDragHandles = true,
+  toggleExpandAllSignal,
+  setIsAllExpanded
+}) => {
   const {
     items,
     groups,
@@ -194,10 +221,11 @@ const OrderedList = () => {
     onAddTask,
     toggleCheckbox,
     handleTextChange,
-    archiveItem,
     confirmDelete,
     createGroup,
-    assignGroup
+    assignGroup,
+    renameGroup,
+    deleteGroup
   } = useGlobalTasks();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -208,6 +236,29 @@ const OrderedList = () => {
 
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
+
+  // Accordion expanded state
+  const [expandedGroups, setExpandedGroups] = useState({});
+
+  const handleAccordionChange = useCallback((groupKey) => (event, isExpanded) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [groupKey]: isExpanded
+    }));
+  }, []);
+
+  // Group context menu state
+  const [groupMenuAnchorEl, setGroupMenuAnchorEl] = useState(null);
+  const [groupMenuId, setGroupMenuId] = useState(null);
+
+  // Rename group dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameGroupId, setRenameGroupId] = useState(null);
+  const [renameGroupName, setRenameGroupName] = useState('');
+
+  // Delete group dialog state
+  const [deleteGroupDialogOpen, setDeleteGroupDialogOpen] = useState(false);
+  const [deleteGroupId, setDeleteGroupId] = useState(null);
 
   const handleOpenNewGroupDialog = useCallback(() => {
     setNewGroupDialogOpen(true);
@@ -258,6 +309,59 @@ const OrderedList = () => {
     }
   }, [assignerTaskId, assignGroup]);
 
+  // Group context menu handlers
+  const handleOpenGroupMenu = useCallback((event, groupId) => {
+    event.stopPropagation();
+    setGroupMenuAnchorEl(event.currentTarget);
+    setGroupMenuId(groupId);
+  }, []);
+
+  const handleCloseGroupMenu = useCallback(() => {
+    setGroupMenuAnchorEl(null);
+    setGroupMenuId(null);
+  }, []);
+
+  const handleOpenRenameDialog = useCallback(() => {
+    const group = groups[groupMenuId];
+    if (group) {
+      setRenameGroupId(groupMenuId);
+      setRenameGroupName(group.name);
+      setRenameDialogOpen(true);
+    }
+    handleCloseGroupMenu();
+  }, [groupMenuId, groups, handleCloseGroupMenu]);
+
+  const handleCloseRenameDialog = useCallback(() => {
+    setRenameDialogOpen(false);
+    setRenameGroupId(null);
+    setRenameGroupName('');
+  }, []);
+
+  const handleConfirmRename = useCallback(async () => {
+    if (renameGroupId && renameGroupName.trim()) {
+      await renameGroup(renameGroupId, renameGroupName.trim());
+    }
+    handleCloseRenameDialog();
+  }, [renameGroupId, renameGroupName, renameGroup, handleCloseRenameDialog]);
+
+  const handleOpenDeleteGroupDialog = useCallback(() => {
+    setDeleteGroupId(groupMenuId);
+    setDeleteGroupDialogOpen(true);
+    handleCloseGroupMenu();
+  }, [groupMenuId, handleCloseGroupMenu]);
+
+  const handleCloseDeleteGroupDialog = useCallback(() => {
+    setDeleteGroupDialogOpen(false);
+    setDeleteGroupId(null);
+  }, []);
+
+  const handleConfirmDeleteGroup = useCallback(async () => {
+    if (deleteGroupId) {
+      await deleteGroup(deleteGroupId);
+    }
+    handleCloseDeleteGroupDialog();
+  }, [deleteGroupId, deleteGroup, handleCloseDeleteGroupDialog]);
+
   const groupedItems = useMemo(() => {
     const result = {
       ungrouped: {
@@ -300,6 +404,35 @@ const OrderedList = () => {
     return keys;
   }, [groupedItems, groups]);
 
+  const allGroupKeys = useMemo(() => ['ungrouped', ...sortedGroupKeys], [sortedGroupKeys]);
+
+  const isAnyExpanded = useMemo(() => {
+    return allGroupKeys.some(k => expandedGroups[k] !== false);
+  }, [allGroupKeys, expandedGroups]);
+
+  useEffect(() => {
+    if (setIsAllExpanded) {
+      setIsAllExpanded(isAnyExpanded);
+    }
+  }, [isAnyExpanded, setIsAllExpanded]);
+
+  const isFirstRender = React.useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (toggleExpandAllSignal > 0) {
+      setExpandedGroups(() => {
+        const newExpanded = {};
+        allGroupKeys.forEach(k => {
+          newExpanded[k] = !isAnyExpanded;
+        });
+        return newExpanded;
+      });
+    }
+  }, [toggleExpandAllSignal]);
+
   const itemToDelete = itemToDeleteId ? items.find(i => i.id === itemToDeleteId) : null;
   const assignerTask = assignerTaskId ? items.find(i => i.id === assignerTaskId) : null;
 
@@ -312,41 +445,51 @@ const OrderedList = () => {
           if (group.items.length === 0 && sortedGroupKeys.length > 0) return null;
           return (
             <Accordion 
-              key={groupKey} 
               defaultExpanded 
+              expanded={expandedGroups[groupKey] !== false}
+              onChange={handleAccordionChange(groupKey)}
               disableGutters 
               elevation={0} 
               sx={{ 
                 '&:before': { display: 'none' },
                 borderBottom: `1px solid ${MAIN_COLOUR}40`,
-                mb: 2,
+                mb: 0,
                 bgcolor: 'transparent'
               }}
             >
               <AccordionSummary 
-                expandIcon={<ExpandMoreIcon />}
                 sx={{
-                  bgcolor: `${MAIN_COLOUR}15`,
+                  bgcolor: `rgba(0, 0, 0, 0.04)`,
                   borderRadius: '4px',
                   minHeight: '48px',
                   '& .MuiAccordionSummary-content': { my: 1 }
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: MAIN_COLOUR }}>
-                    {group.name} ({group.items.length})
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: "#181818" }}>
+                    {group.name}
                   </Typography>
-                  <IconButton 
-                    size="small" 
-                    onClick={(e) => { 
-                      e.stopPropagation(); 
-                      onAddTask(null); 
-                    }} 
-                    sx={{ ml: 'auto', mr: 2 }}
-                    title="Add Task to Group"
-                  >
-                    <AddIcon fontSize="small" />
-                  </IconButton>
+                  <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+                    <IconButton 
+                      size="small" 
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        setExpandedGroups(prev => ({ ...prev, [groupKey]: true }));
+                        onAddTask(null); 
+                      }} 
+                      title="Add Task to Group"
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton 
+                      size="small" 
+                      sx={{ visibility: 'hidden', pointerEvents: 'none' }}
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    >
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
@@ -368,9 +511,9 @@ const OrderedList = () => {
                               onTextChange={handleTextChange}
                               onMoveToTop={moveToTop}
                               onMoveToBottom={moveToBottom}
-                              onArchive={archiveItem}
                               onDelete={openDeleteDialog}
                               onOpenGroupAssigner={handleOpenGroupAssigner}
+                              showTaskDragHandles={showTaskDragHandles}
                             />
                           )}
                         </Draggable>
@@ -395,19 +538,19 @@ const OrderedList = () => {
                       <Accordion 
                         ref={providedGroup.innerRef}
                         {...providedGroup.draggableProps}
-                        key={groupKey} 
                         defaultExpanded 
+                        expanded={expandedGroups[groupKey] !== false}
+                        onChange={handleAccordionChange(groupKey)}
                         disableGutters 
                         elevation={0} 
                         sx={{ 
                           '&:before': { display: 'none' },
                           borderBottom: `1px solid ${MAIN_COLOUR}40`,
-                          mb: 2,
+                          mb: 0,
                           bgcolor: 'transparent'
                         }}
                       >
                         <AccordionSummary 
-                          expandIcon={<ExpandMoreIcon />}
                           sx={{
                             bgcolor: `${MAIN_COLOUR}15`,
                             borderRadius: '4px',
@@ -416,23 +559,34 @@ const OrderedList = () => {
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                            <Box {...providedGroup.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', mr: 1, cursor: 'grab', color: MAIN_COLOUR }}>
-                              <DragHandleIcon fontSize="small" />
-                            </Box>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: MAIN_COLOUR }}>
-                              {group.name} ({group.items.length})
+                            {showGroupDragHandles && (
+                              <Box {...providedGroup.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', mr: 1, cursor: 'grab', color: MAIN_COLOUR }}>
+                                <DragHandleIcon fontSize="small" />
+                              </Box>
+                            )}
+                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: "#181818" }}>
+                              {group.name}
                             </Typography>
-                            <IconButton 
-                              size="small" 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                onAddTask(groupKey); 
-                              }} 
-                              sx={{ ml: 'auto', mr: 2 }}
-                              title="Add Task to Group"
-                            >
-                              <AddIcon fontSize="small" />
-                            </IconButton>
+                            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center' }}>
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); 
+                                  setExpandedGroups(prev => ({ ...prev, [groupKey]: true }));
+                                  onAddTask(groupKey); 
+                                }} 
+                                title="Add Task to Group"
+                              >
+                                <AddIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                onClick={(e) => handleOpenGroupMenu(e, groupKey)} 
+                                title="Group options"
+                              >
+                                <MoreVertIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
                           </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ p: 0 }}>
@@ -454,9 +608,9 @@ const OrderedList = () => {
                                         onTextChange={handleTextChange}
                                         onMoveToTop={moveToTop}
                                         onMoveToBottom={moveToBottom}
-                                        onArchive={archiveItem}
                                         onDelete={openDeleteDialog}
                                         onOpenGroupAssigner={handleOpenGroupAssigner}
+                                        showTaskDragHandles={showTaskDragHandles}
                                       />
                                     )}
                                   </Draggable>
@@ -487,7 +641,7 @@ const OrderedList = () => {
         <AddIcon fontSize="medium" />
       </Fab>
 
-      <Dialog open={newGroupDialogOpen} onClose={handleCloseNewGroupDialog} maxWidth="xs" fullWidth>
+      <Dialog disableScrollLock={true} open={newGroupDialogOpen} onClose={handleCloseNewGroupDialog} maxWidth="xs" fullWidth>
         <DialogTitle>Create New Group</DialogTitle>
         <DialogContent>
           <TextField
@@ -530,6 +684,64 @@ const OrderedList = () => {
         currentGroupId={assignerTask?.groupId || null}
         onAssignGroup={handleAssignGroup}
         onCreateGroup={createGroup}
+      />
+
+      {/* Group context menu */}
+      <Menu
+        disableScrollLock={true}
+        anchorEl={groupMenuAnchorEl}
+        open={Boolean(groupMenuAnchorEl)}
+        onClose={handleCloseGroupMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem onClick={handleOpenRenameDialog}>
+          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+          <ListItemText>Rename</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={handleOpenDeleteGroupDialog} sx={{ color: 'error.main' }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText>Delete Group</ListItemText>
+        </MenuItem>
+      </Menu>
+
+      {/* Rename group dialog */}
+      <Dialog disableScrollLock={true} open={renameDialogOpen} onClose={handleCloseRenameDialog} maxWidth="xs" fullWidth>
+        <DialogTitle>Rename Group</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Group Name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={renameGroupName}
+            onChange={(e) => setRenameGroupName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleConfirmRename();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRenameDialog}>Cancel</Button>
+          <Button onClick={handleConfirmRename} variant="contained" color="primary" disabled={!renameGroupName.trim()}>
+            Rename
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete group confirmation dialog */}
+      <DeleteDialog
+        open={deleteGroupDialogOpen}
+        onClose={handleCloseDeleteGroupDialog}
+        onConfirm={handleConfirmDeleteGroup}
+        itemText={deleteGroupId && groups[deleteGroupId] ? groups[deleteGroupId].name : ""}
+        title="Delete Group"
+        textPrefix="Tasks in this group will be moved to Ungrouped. Delete group:"
       />
     </Box>
   );

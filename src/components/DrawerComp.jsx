@@ -12,7 +12,6 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import TodayIcon from '@mui/icons-material/Today';
 import MenuIcon from '@mui/icons-material/Menu';
-import ArchiveIcon from "@mui/icons-material/Archive";
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
@@ -22,7 +21,7 @@ import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 
-import { ARCHIVED_TASKS_VIEW_PATH, GLOBAL_TASKS_VIEW_PATH, GYM_WEIGHTS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
+import { GLOBAL_TASKS_VIEW_PATH, GYM_WEIGHTS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
 import { useAuth } from "../context/AuthContext";
 
 
@@ -41,9 +40,6 @@ function DrawerComp(props) {
     navigate(GYM_WEIGHTS_VIEW_PATH);
   }
 
-  const onArchivedTasksClick = () => {
-    navigate(ARCHIVED_TASKS_VIEW_PATH)
-  }
 
 
   const onSettingsClick = () => {
@@ -77,13 +73,6 @@ function DrawerComp(props) {
               <ListItemButton onClick={onGymWeightsClick}>
                 <ListItemIcon> <FitnessCenterIcon /> </ListItemIcon>
                 <ListItemText primary="Gym Weights" />
-              </ListItemButton>
-            </ListItem>
-
-            <ListItem disablePadding>
-              <ListItemButton onClick={onArchivedTasksClick}>
-                <ListItemIcon> <ArchiveIcon /> </ListItemIcon>
-                <ListItemText primary="Archived Tasks" />
               </ListItemButton>
             </ListItem>
 

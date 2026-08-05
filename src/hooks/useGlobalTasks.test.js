@@ -32,10 +32,9 @@ describe('useGlobalTasks hook', () => {
     onValueMock = firebaseDatabase.onValue;
   });
 
-  it('initializes with empty items and archivedItems arrays', () => {
+  it('initializes with empty items array', () => {
     const { result } = renderHook(() => useGlobalTasks());
     expect(result.current.items).toEqual([]);
-    expect(result.current.archivedItems).toEqual([]);
   });
 
   it('exposes the correct functions', () => {
@@ -43,10 +42,7 @@ describe('useGlobalTasks hook', () => {
     expect(typeof result.current.onAddTask).toBe('function');
     expect(typeof result.current.toggleCheckbox).toBe('function');
     expect(typeof result.current.handleTextChange).toBe('function');
-    expect(typeof result.current.archiveItem).toBe('function');
     expect(typeof result.current.confirmDelete).toBe('function');
-    expect(typeof result.current.unarchiveItem).toBe('function');
-    expect(typeof result.current.deleteArchivedItem).toBe('function');
     expect(typeof result.current.moveToTop).toBe('function');
     expect(typeof result.current.moveToBottom).toBe('function');
   });
@@ -137,26 +133,6 @@ describe('useGlobalTasks hook', () => {
     expect(itemsUpdated[2].id).toBe('id-3');
   });
 
-  it('unarchiveItem calculates correct order even with missing order props or empty list', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    
-    act(() => {
-      onValueMock.mock.calls[0][1]({ val: () => null });
-      onValueMock.mock.calls[1][1]({
-        val: () => ({
-          'archived-1': { text: 'Archived Task', archivedAt: 12345 }
-        })
-      });
-    });
-
-    await act(async () => {
-      await result.current.unarchiveItem(0);
-    });
-
-    const updateArg = firebaseDatabase.update.mock.calls[0][1];
-    const restoredItemKeys = Object.keys(updateArg).filter(k => k.includes('archived-1') && updateArg[k] !== null);
-    expect(updateArg[restoredItemKeys[0]].order).toBe(0);
-  });
 
   it('createGroup creates a new group in the database', async () => {
     const { result } = renderHook(() => useGlobalTasks());

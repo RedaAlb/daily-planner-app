@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Popover, Autocomplete, TextField, Box } from '@mui/material';
 
 const GroupAssigner = ({
@@ -11,6 +11,12 @@ const GroupAssigner = ({
 }) => {
   const open = Boolean(anchorEl);
   const [inputValue, setInputValue] = useState("");
+
+  useEffect(() => {
+    if (open) {
+      setInputValue("");
+    }
+  }, [open]);
 
   const options = useMemo(() => {
     return Object.values(groups || {}).map(g => ({
@@ -38,6 +44,7 @@ const GroupAssigner = ({
 
   return (
     <Popover
+      disableScrollLock={true}
       open={open}
       anchorEl={anchorEl}
       onClose={onClose}
