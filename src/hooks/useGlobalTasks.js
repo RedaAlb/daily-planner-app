@@ -16,6 +16,9 @@ const useGlobalTasks = () => {
   const [globalItems, setGlobalItems] = useState([]);
   const [dailyGroupedItems, setDailyGroupedItems] = useState([]);
   const [groups, setGroups] = useState({});
+  const [loadingTasks, setLoadingTasks] = useState(true);
+  const [loadingDaily, setLoadingDaily] = useState(true);
+  const [loadingGroups, setLoadingGroups] = useState(true);
 
   // Subscribe to global_tasks (undated tasks + tasks created in Global Tasks View)
   useEffect(() => {
@@ -40,9 +43,11 @@ const useGlobalTasks = () => {
       } else {
         setGlobalItems([]);
       }
+      setLoadingTasks(false);
     }, (error) => {
       console.error("Firebase error fetching tasks:", error);
       setGlobalItems([]);
+      setLoadingTasks(false);
     });
 
     return () => tasksListener();
@@ -53,8 +58,13 @@ const useGlobalTasks = () => {
     const unsubscribe = typeof subscribeToAllGroupedTasks === "function"
       ? subscribeToAllGroupedTasks((groupedTasks) => {
           setDailyGroupedItems(groupedTasks);
+          setLoadingDaily(false);
         })
       : null;
+
+    if (!unsubscribe) {
+      setLoadingDaily(false);
+    }
 
     return () => {
       if (unsubscribe) unsubscribe();
@@ -71,9 +81,11 @@ const useGlobalTasks = () => {
       } else {
         setGroups({});
       }
+      setLoadingGroups(false);
     }, (error) => {
       console.error("Firebase error fetching groups:", error);
       setGroups({});
+      setLoadingGroups(false);
     });
 
     return () => groupsListener();
@@ -373,7 +385,8 @@ const useGlobalTasks = () => {
     assignGroup,
     renameGroup,
     deleteGroup,
-    unassignDate
+    unassignDate,
+    loading: loadingTasks || loadingDaily || loadingGroups
   };
 };
 

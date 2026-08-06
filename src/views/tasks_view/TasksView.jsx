@@ -8,7 +8,7 @@ import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTa
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
 
 
-import { Chip } from "@mui/material";
+import { Chip, CircularProgress } from "@mui/material";
 
 import TasksViewTopbar from "./TasksViewTopbar";
 import DailyTaskItem from "../dailyplanner_view/DailyTaskItem";
@@ -294,7 +294,13 @@ function TasksView() {
     });
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress sx={{ color: MAIN_COLOUR }} />
+      </div>
+    );
+  }
 
   const hasAnyPendingTasks = sortedDateKeys.some(dateKey => {
     const tasks = dateGroups[dateKey];

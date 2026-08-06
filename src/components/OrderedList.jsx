@@ -20,7 +20,8 @@ import {
   DialogActions,
   Button,
   TextField,
-  Chip
+  Chip,
+  CircularProgress
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -333,7 +334,8 @@ const OrderedList = ({
     assignGroup,
     renameGroup,
     deleteGroup,
-    unassignDate
+    unassignDate,
+    loading
   } = useGlobalTasks();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -566,6 +568,14 @@ const OrderedList = ({
 
   const itemToDelete = itemToDeleteId ? items.find(i => i.id === itemToDeleteId) : null;
   const assignerTask = assignerTaskId ? items.find(i => i.id === assignerTaskId) : null;
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+        <CircularProgress sx={{ color: MAIN_COLOUR }} />
+      </Box>
+    );
+  }
 
   return (
     <Box>

@@ -67,7 +67,7 @@ function DailyTaskItem(props) {
   const onTickClick = (checkIndex) => {
     const newTask = { ...task, checkIndex: checkIndex };
     setTask(newTask);
-    
+
     if (props.onTaskUpdate) {
       props.onTaskUpdate(props.index, newTask);
     } else {
@@ -110,7 +110,7 @@ function DailyTaskItem(props) {
     if (document.activeElement && typeof document.activeElement.blur === "function") {
       document.activeElement.blur();
     }
-    
+
     if (props.onMoveToDate) {
       props.onMoveToDate(task, props.index, targetDate, itemDate);
       return;
@@ -118,12 +118,12 @@ function DailyTaskItem(props) {
 
     const targetDateKey = getDbDateKey(targetDate);
     const currentDateKey = getDbDateKey(itemDate);
-    
+
     if (targetDateKey === currentDateKey) return;
 
     const targetDateData = await loadDate(targetDate);
     const targetTasks = targetDateData[TASKS_PATH] || Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
-    
+
     let emptyIndex = targetTasks.findIndex(t => !t || !t.text || t.text === "");
     if (emptyIndex !== -1) {
       targetTasks[emptyIndex] = task;
@@ -135,7 +135,7 @@ function DailyTaskItem(props) {
 
     const currentTasks = state?.tasks ? [...state.tasks] : [];
     currentTasks[props.index] = { checkIndex: 0, text: "" };
-    
+
     updateDateTasks(currentDateKey, currentTasks);
   };
 
@@ -254,10 +254,10 @@ function DailyTaskItem(props) {
 
       {showContextMenuButton && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, ml: 0.5 }}>
-          <IconButton 
-            size="small" 
+          <IconButton
+            size="small"
             onClick={handleMenuClick}
-            sx={{ color: MAIN_COLOUR, padding: '4px' }}
+            sx={{ color: MAIN_COLOUR, padding: '0px' }}
             title="More actions"
           >
             <MoreVertIcon fontSize="small" />
