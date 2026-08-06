@@ -8,7 +8,6 @@ import { BrowserRouter } from 'react-router-dom';
 vi.mock('../../utils/Firebase', () => ({
   updateDateTasks: vi.fn(),
   subscribeToAllTasks: vi.fn(),
-  assignDailyTaskToGlobalGroup: vi.fn().mockResolvedValue('new-global-id'),
   normalizeFirebaseArray: vi.fn((data) => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
@@ -176,7 +175,7 @@ describe('TasksView', () => {
     vi.useRealTimers();
   });
 
-  it('calls assignDailyTaskToGlobalGroup and updateDateTasks when assigning to a group', async () => {
+  it('calls updateDateTasks when assigning to a group, updating in-place', async () => {
     vi.useFakeTimers();
     await act(async () => {
       customRender(<TasksView />);
@@ -197,14 +196,9 @@ describe('TasksView', () => {
       vi.runAllTimers(); 
     });
 
-    const { assignDailyTaskToGlobalGroup } = await import('../../utils/Firebase');
-    
-    // Should add to global group
-    expect(assignDailyTaskToGlobalGroup).toHaveBeenCalledWith("Incomplete Task", false, 'group-123');
-
-    // Should clear from daily planner
+    // Should update the daily planner in-place (adding groupId), NOT clear it
     expect(updateDateTasks).toHaveBeenCalledWith("22-6-2026", expect.arrayContaining([
-      expect.objectContaining({ text: "", checkIndex: 0 }),
+      expect.objectContaining({ text: "Incomplete Task", checkIndex: 0, groupId: 'group-123' }),
       { text: "Completed Task", checkIndex: 1 },
       { text: "Migrated Task", checkIndex: 2 },
       { text: "", checkIndex: 0 }

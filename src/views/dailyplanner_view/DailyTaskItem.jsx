@@ -17,7 +17,7 @@ import gbLocale from "date-fns/locale/en-GB";
 import dailyplannerContext from "./context/dailyplanner-context";
 import useDebounce from "../../hooks/useDebounce";
 
-import { initDate, updateTask, getDbDateKey, loadDate, updateDateTasks, assignDailyTaskToGlobalGroup } from "../../utils/Firebase";
+import { initDate, updateTask, getDbDateKey, loadDate, updateDateTasks } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT, NUM_TASK_ITEMS, TASKS_PATH } from "../../utils/constants";
 import { SET_TASKS } from "./context/dailyplanner-actions";
 
@@ -178,15 +178,11 @@ function DailyTaskItem(props) {
       return;
     }
 
-    // FIRST: Add to global_tasks in Firebase
-    await assignDailyTaskToGlobalGroup(task.text, task.checkIndex === 1, groupId);
-
-    // SECOND: Clear task in daily planner in Firebase ONLY after successful write to global_tasks
-    const currentDateKey = getDbDateKey(itemDate);
-    const currentTasks = state?.tasks ? [...state.tasks] : [];
-    currentTasks[props.index] = { checkIndex: 0, text: "" };
-
-    await updateDateTasks(currentDateKey, currentTasks);
+    // Just tag the task with the groupId — it stays on its date
+    const newTask = { ...task, groupId };
+    setTask(newTask);
+    updateTask(itemDate, props.index, newTask);
+    initDate(itemDate, state?.time, dispatch);
   };
 
   useEffect(() => {

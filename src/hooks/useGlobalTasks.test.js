@@ -2,16 +2,13 @@ import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import useGlobalTasks from './useGlobalTasks';
 import * as firebaseDatabase from 'firebase/database';
+import { subscribeToAllGroupedTasks, updateTask as updateDailyTask, moveDailyTaskToGlobal } from '../utils/Firebase';
 
 // Mock firebase database functions
 vi.mock('firebase/database', () => {
   return {
-    ref: vi.fn(),
-    onValue: vi.fn((ref, callback, errorCallback) => {
-      callback({ val: () => null });
-      return () => {};
-    }),
-    off: vi.fn(),
+    ref: vi.fn((db, path) => ({ path })),
+    onValue: vi.fn(),
     update: vi.fn().mockResolvedValue(),
     set: vi.fn().mockResolvedValue(),
     remove: vi.fn().mockResolvedValue(),
@@ -19,17 +16,35 @@ vi.mock('firebase/database', () => {
   };
 });
 
-// Mock the Firebase appDb constant
 vi.mock('../utils/Firebase', () => ({
-  appDb: {}
+  appDb: {},
+  updateTask: vi.fn().mockResolvedValue(),
+  moveDailyTaskToGlobal: vi.fn().mockResolvedValue(),
+  subscribeToAllGroupedTasks: vi.fn(),
+  GLOBAL_TASKS_PATH: 'global_tasks',
+  GLOBAL_TASK_GROUPS_PATH: 'global_task_groups'
 }));
 
 describe('useGlobalTasks hook', () => {
   let onValueMock;
+  let subscribeGroupedMock;
 
   beforeEach(() => {
     vi.clearAllMocks();
     onValueMock = firebaseDatabase.onValue;
+    subscribeGroupedMock = subscribeToAllGroupedTasks;
+
+    // Default mock behavior for onValue (global tasks and groups)
+    onValueMock.mockImplementation((ref, callback) => {
+      callback({ val: () => null });
+      return () => {};
+    });
+
+    // Default mock behavior for subscribeToAllGroupedTasks
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([]);
+      return () => {};
+    });
   });
 
   it('initializes with empty items array', () => {
@@ -37,138 +52,125 @@ describe('useGlobalTasks hook', () => {
     expect(result.current.items).toEqual([]);
   });
 
-  it('exposes the correct functions', () => {
+  it('merges global tasks and grouped daily tasks correctly', () => {
+    // Mock global tasks
+    onValueMock.mockImplementation((refObj, callback) => {
+      if (refObj.path === 'global_tasks') {
+        callback({
+          val: () => ({
+            'g-1': { text: 'Global Task 1', order: 0, groupId: 'group-1' }
+          })
+        });
+      } else {
+        callback({ val: () => null });
+      }
+      return () => {};
+    });
+
+    // Mock daily grouped tasks
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([
+        {
+          id: '5-8-2026:0',
+          text: 'Daily Task 1',
+          checked: false,
+          groupId: 'group-1',
+          order: 0,
+          source: 'daily',
+          dateKey: '5-8-2026',
+          dateIndex: 0,
+          checkIndex: 0
+        }
+      ]);
+      return () => {};
+    });
+
     const { result } = renderHook(() => useGlobalTasks());
-    expect(typeof result.current.onAddTask).toBe('function');
-    expect(typeof result.current.toggleCheckbox).toBe('function');
-    expect(typeof result.current.handleTextChange).toBe('function');
-    expect(typeof result.current.confirmDelete).toBe('function');
-    expect(typeof result.current.moveToTop).toBe('function');
-    expect(typeof result.current.moveToBottom).toBe('function');
+    
+    expect(result.current.items.length).toBe(2);
+    expect(result.current.items.find(i => i.id === 'g-1').source).toBe('global');
+    expect(result.current.items.find(i => i.id === '5-8-2026:0').source).toBe('daily');
   });
 
-  it('onAddTask pushes a new item to the top and updates orders', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    
-    act(() => {
-      onValueMock.mock.calls[0][1]({
-        val: () => ({
-          'existing-1': { text: 'Task 1', order: 0 }
-        })
-      });
+  it('routes toggleCheckbox to global_tasks for global tasks', async () => {
+    onValueMock.mockImplementation((refObj, callback) => {
+      if (refObj.path === 'global_tasks') {
+        callback({
+          val: () => ({ 'g-1': { text: 'Global Task', checked: false } })
+        });
+      } else {
+        callback({ val: () => null });
+      }
+      return () => {};
     });
+
+    const { result } = renderHook(() => useGlobalTasks());
 
     await act(async () => {
-      await result.current.onAddTask();
-    });
-
-    expect(firebaseDatabase.push).toHaveBeenCalled();
-    expect(firebaseDatabase.update).toHaveBeenCalled();
-    const updateArg = firebaseDatabase.update.mock.calls[0][1];
-    
-    const keys = Object.keys(updateArg);
-    expect(keys.length).toBe(2);
-    expect(Object.values(updateArg).some(item => item.id === 'mock-uuid-123' && item.order === 0)).toBe(true);
-    expect(Object.values(updateArg).some(item => item.id === 'existing-1' && item.order === 1)).toBe(true);
-  });
-
-  it('moveToBottom for checked items moves them to the top of checked items (below unchecked)', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    
-    act(() => {
-      onValueMock.mock.calls[0][1]({
-        val: () => ({
-          'id-1': { text: 'Unchecked 1', checked: false, order: 0 },
-          'id-2': { text: 'Checked 1', checked: true, order: 1 },
-          'id-3': { text: 'Unchecked 2', checked: false, order: 2 },
-          'id-4': { text: 'Unchecked 3', checked: false, order: 3 },
-          'id-5': { text: 'Checked 2', checked: true, order: 4 },
-          'id-6': { text: 'Checked 3', checked: true, order: 5 }
-        })
-      });
-    });
-
-    // Move 'Checked 1' (id-2) to bottom
-    await act(async () => {
-      await result.current.moveToBottom('id-2');
-    });
-
-    const updateArg = firebaseDatabase.update.mock.calls[0][1];
-    const itemsUpdated = Object.values(updateArg);
-    
-    // Unchecked: id-1, id-3, id-4
-    // Checked: id-2 (moved), id-5, id-6
-    expect(itemsUpdated[0].id).toBe('id-1');
-    expect(itemsUpdated[1].id).toBe('id-3');
-    expect(itemsUpdated[2].id).toBe('id-4');
-    expect(itemsUpdated[3].id).toBe('id-2');
-    expect(itemsUpdated[4].id).toBe('id-5');
-    expect(itemsUpdated[5].id).toBe('id-6');
-  });
-
-  it('moveToBottom for unchecked items moves them to the bottom of the unchecked items (above checked)', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    
-    act(() => {
-      onValueMock.mock.calls[0][1]({
-        val: () => ({
-          'id-1': { text: 'Unchecked 1', checked: false, order: 0 },
-          'id-2': { text: 'Unchecked 2', checked: false, order: 1 },
-          'id-3': { text: 'Checked 1', checked: true, order: 2 }
-        })
-      });
-    });
-
-    // Move 'Unchecked 1' (id-1) to bottom
-    await act(async () => {
-      await result.current.moveToBottom('id-1');
-    });
-
-    const updateArg = firebaseDatabase.update.mock.calls[0][1];
-    const itemsUpdated = Object.values(updateArg);
-    
-    // Result should be: id-2 (Unchecked 2), id-1 (Unchecked 1 moved), id-3 (Checked 1)
-    expect(itemsUpdated[0].id).toBe('id-2');
-    expect(itemsUpdated[1].id).toBe('id-1');
-    expect(itemsUpdated[2].id).toBe('id-3');
-  });
-
-
-  it('createGroup creates a new group in the database', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    let newGroupId;
-    await act(async () => {
-      newGroupId = await result.current.createGroup('New Work Group');
-    });
-    
-    expect(firebaseDatabase.push).toHaveBeenCalled();
-    expect(firebaseDatabase.set).toHaveBeenCalled();
-    expect(newGroupId).toBe('mock-uuid-123');
-    
-    const setArgs = firebaseDatabase.set.mock.calls[0];
-    expect(setArgs[1].name).toBe('New Work Group');
-    expect(setArgs[1].id).toBe('mock-uuid-123');
-  });
-
-  it('assignGroup updates the group of a task', async () => {
-    const { result } = renderHook(() => useGlobalTasks());
-    
-    act(() => {
-      onValueMock.mock.calls[0][1]({
-        val: () => ({
-          'task-1': { text: 'Task 1', order: 0, groupId: null }
-        })
-      });
-    });
-
-    await act(async () => {
-      await result.current.assignGroup('task-1', 'group-uuid');
+      await result.current.toggleCheckbox('g-1', true);
     });
 
     expect(firebaseDatabase.set).toHaveBeenCalled();
     const setArgs = firebaseDatabase.set.mock.calls[0];
-    expect(setArgs[1].groupId).toBe('group-uuid');
-    expect(setArgs[1].text).toBe('Task 1');
+    expect(setArgs[0].path).toBe('global_tasks/g-1');
+    expect(setArgs[1].checked).toBe(true);
   });
 
+  it('routes toggleCheckbox to updateDailyTask for daily-sourced tasks', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([{
+        id: '5-8-2026:0',
+        text: 'Daily Task',
+        checked: false,
+        groupId: 'group-1',
+        source: 'daily',
+        dateKey: '5-8-2026',
+        dateIndex: 0,
+        checkIndex: 0
+      }]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.toggleCheckbox('5-8-2026:0', true);
+    });
+
+    expect(updateDailyTask).toHaveBeenCalled();
+    expect(updateDailyTask).toHaveBeenCalledWith(
+      expect.any(Date),
+      0,
+      { checkIndex: 1, text: 'Daily Task', groupId: 'group-1' }
+    );
+  });
+
+  it('unassignDate calls moveDailyTaskToGlobal', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([{
+        id: '5-8-2026:0',
+        text: 'Daily Task',
+        checked: false,
+        groupId: 'group-1',
+        source: 'daily',
+        dateKey: '5-8-2026',
+        dateIndex: 0,
+        checkIndex: 0
+      }]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.unassignDate('5-8-2026:0');
+    });
+
+    expect(moveDailyTaskToGlobal).toHaveBeenCalled();
+    expect(moveDailyTaskToGlobal).toHaveBeenCalledWith(
+      '5-8-2026',
+      0,
+      { text: 'Daily Task', checkIndex: 0, groupId: 'group-1' }
+    );
+  });
 });

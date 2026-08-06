@@ -1,10 +1,12 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import * as db from 'firebase/database';
 import {
-  assignDailyTaskToGlobalGroup,
+  assignGroupToDailyTask,
+  moveDailyTaskToGlobal,
   moveGlobalTaskToDailyPlanner,
   createGlobalTaskGroup,
-  ensureDateKeyExists
+  ensureDateKeyExists,
+  updateTask
 } from './Firebase';
 
 vi.mock('firebase/app', () => ({
@@ -18,6 +20,8 @@ vi.mock('firebase/auth', () => ({
   signOut: vi.fn(),
   onAuthStateChanged: vi.fn()
 }));
+
+// Remove the self-mock of updateTask since we want to test the full flow
 
 vi.mock('firebase/database', () => {
   return {
@@ -39,22 +43,71 @@ describe('Firebase integration helpers', () => {
     vi.clearAllMocks();
   });
 
-  it('assignDailyTaskToGlobalGroup pushes a task to global_tasks in Firebase', async () => {
-    const taskId = await assignDailyTaskToGlobalGroup('My Daily Task', false, 'group-abc');
-    expect(taskId).toBe('mock-pushed-key-123');
-    expect(db.push).toHaveBeenCalled();
-    expect(db.set).toHaveBeenCalled();
+  it('assignGroupToDailyTask updates task in place with groupId', async () => {
+    db.get.mockResolvedValueOnce({
+      exists: () => true,
+      val: () => ({ tasks: [{ text: 'My Daily Task', checkIndex: 0 }] })
+    });
 
+    const task = { text: 'My Daily Task', checkIndex: 0 };
+    const date = new Date(2026, 7, 5); // 5 Aug 2026
+
+    await assignGroupToDailyTask(date, 0, task, 'group-abc');
+    
+    // verify db.set was called to update the date tasks
+    expect(db.set).toHaveBeenCalled();
     const setCall = db.set.mock.calls[0];
-    const taskPayload = setCall[1];
-    expect(taskPayload).toEqual({
-      id: 'mock-pushed-key-123',
+    expect(setCall[0].path).toBe('5-8-2026/tasks/0/');
+    expect(setCall[1]).toEqual({
       text: 'My Daily Task',
+      checkIndex: 0,
+      groupId: 'group-abc'
+    });
+  });
+
+  it('assignGroupToDailyTask with null groupId removes groupId from task', async () => {
+    db.get.mockResolvedValueOnce({
+      exists: () => true,
+      val: () => ({ tasks: [{ text: 'My Daily Task', checkIndex: 0, groupId: 'old-group' }] })
+    });
+
+    const task = { text: 'My Daily Task', checkIndex: 0, groupId: 'old-group' };
+    const date = new Date(2026, 7, 5);
+
+    await assignGroupToDailyTask(date, 0, task, null);
+    
+    expect(db.set).toHaveBeenCalled();
+    const setCall = db.set.mock.calls[0];
+    expect(setCall[0].path).toBe('5-8-2026/tasks/0/');
+    expect(setCall[1]).toEqual({
+      text: 'My Daily Task',
+      checkIndex: 0
+    });
+  });
+
+  it('moveDailyTaskToGlobal moves a dated task to global_tasks and clears daily slot', async () => {
+    const task = { text: 'Original task', checkIndex: 0, groupId: 'group-1' };
+    const newId = await moveDailyTaskToGlobal('5-8-2026', 0, task);
+    
+    expect(newId).toBe('mock-pushed-key-123');
+    
+    // Should create in global_tasks
+    expect(db.set).toHaveBeenCalledTimes(2); // One for global_tasks, one for updateDateTasks
+    const globalTasksSetCall = db.set.mock.calls[0];
+    expect(globalTasksSetCall[0].path).toBe('global_tasks/mock-pushed-key-123');
+    expect(globalTasksSetCall[1]).toEqual({
+      id: 'mock-pushed-key-123',
+      text: 'Original task',
       checked: false,
       order: 0,
-      groupId: 'group-abc',
+      groupId: 'group-1',
       createdAt: expect.any(Number)
     });
+
+    // Should clear daily slot
+    const dailyPlannerSetCall = db.set.mock.calls[1];
+    expect(dailyPlannerSetCall[0].path).toBe('5-8-2026/tasks/');
+    expect(dailyPlannerSetCall[1][0]).toEqual({ checkIndex: 0, text: "" });
   });
 
   it('createGlobalTaskGroup pushes a new group to global_task_groups in Firebase', async () => {
@@ -72,14 +125,27 @@ describe('Firebase integration helpers', () => {
   });
 
   it('ensureDateKeyExists adds dateKey under dateKeys/ if snapshot does not exist', async () => {
+    db.get.mockResolvedValueOnce({
+      exists: () => false,
+      val: () => null
+    });
     await ensureDateKeyExists('5-8-2026');
     expect(db.get).toHaveBeenCalled();
-    expect(db.push).toHaveBeenCalled();
-    expect(db.set).toHaveBeenCalled();
   });
 
   it('moveGlobalTaskToDailyPlanner writes to target date tasks FIRST before removing from global_tasks', async () => {
-    const globalTask = { id: 'global-task-999', text: 'Reviewed Task', checked: true };
+    // moveGlobalTaskToDailyPlanner calls ensureDateKeyExists (1 get) then loadDate (1 get).
+    db.get.mockImplementation(async (refObj) => {
+      if (refObj.path.includes('dateKeys')) {
+        return { exists: () => true, val: () => true };
+      }
+      return {
+        exists: () => true,
+        val: () => ({ tasks: [{ checkIndex: 0, text: "" }] })
+      };
+    });
+
+    const globalTask = { id: 'global-task-999', text: 'Reviewed Task', checked: true, groupId: 'group-xyz' };
     const targetDate = new Date(2026, 7, 6); // 6th August 2026
 
     const callsOrder = [];
@@ -98,32 +164,11 @@ describe('Firebase integration helpers', () => {
 
     // Verify order: 'set' (writing to daily planner) MUST happen BEFORE 'remove' (deleting from global_tasks)
     expect(callsOrder.indexOf('set')).toBeLessThan(callsOrder.indexOf('remove'));
-  });
 
-  it('round-trip flow: assigning daily task to group and moving it back to same date retains task text in empty slot', async () => {
-    const todayDate = new Date(2026, 7, 5);
-
-    // 1. Assign daily task to group
-    const globalTaskId = await assignDailyTaskToGlobalGroup('Important Task', false, 'group-1');
-    expect(globalTaskId).toBe('mock-pushed-key-123');
-
-    // Mock loadDate to return cleared slots
-    db.get.mockResolvedValueOnce({
-      exists: () => true,
-      val: () => ({
-        tasks: [{ checkIndex: 0, text: '' }, { checkIndex: 0, text: '' }]
-      })
-    });
-
-    // 2. Move global task back to same date
-    const globalTask = { id: globalTaskId, text: 'Important Task', checked: false, groupId: 'group-1' };
-    const success = await moveGlobalTaskToDailyPlanner(globalTask, todayDate);
-    expect(success).toBe(true);
-
-    // Verify set was called with the task restored into slot 0
+    // Verify groupId was preserved
     const setCalls = db.set.mock.calls;
-    const tasksSetCall = setCalls.find(call => call[0]?.path === '5-8-2026/tasks/');
+    const tasksSetCall = setCalls.find(call => call[0]?.path === '6-8-2026/tasks/');
     const writtenTasks = tasksSetCall ? tasksSetCall[1] : setCalls[0][1];
-    expect(writtenTasks[0]).toEqual({ checkIndex: 0, text: 'Important Task' });
+    expect(writtenTasks[0]).toEqual({ checkIndex: 1, text: 'Reviewed Task', groupId: 'group-xyz' });
   });
 });

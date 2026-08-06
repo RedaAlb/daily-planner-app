@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
-import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, assignDailyTaskToGlobalGroup, subscribeToAllTasks } from "../../utils/Firebase";
+import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks } from "../../utils/Firebase";
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
 
 
@@ -193,14 +193,12 @@ function TasksView() {
   }, []);
 
   const handleAssignGroup = useCallback(async (task, index, groupId, sourceDate) => {
-    // FIRST: Add to global_tasks in Firebase
-    await assignDailyTaskToGlobalGroup(task.text, task.checkIndex === 1, groupId);
-
-    // SECOND: Clear task in daily planner in Firebase ONLY after successful write to global_tasks
+    // Just tag the task with the groupId — it stays on its date
     const sourceDateKey = getDbDateKey(sourceDate);
+    const updatedTask = { ...task, groupId };
     setDateGroups(prev => {
       const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
-      sourceTasks[index] = { checkIndex: 0, text: "" };
+      sourceTasks[index] = updatedTask;
       setTimeout(() => {
         updateDateTasks(sourceDateKey, sourceTasks);
       }, 0);

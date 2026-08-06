@@ -13,7 +13,6 @@ const GroupAssigner = ({
   onCreateGroup
 }) => {
   const open = Boolean(anchorEl);
-  const [inputValue, setInputValue] = useState("");
   const [internalGroups, setInternalGroups] = useState({});
 
   useEffect(() => {
@@ -30,12 +29,6 @@ const GroupAssigner = ({
 
   const effectiveGroups = groups !== undefined ? groups : internalGroups;
   const effectiveCreateGroup = onCreateGroup || createGlobalTaskGroup;
-
-  useEffect(() => {
-    if (open) {
-      setInputValue("");
-    }
-  }, [open]);
 
   const options = useMemo(() => {
     return Object.values(effectiveGroups || {}).map(g => ({
@@ -80,12 +73,9 @@ const GroupAssigner = ({
     >
       <Box sx={{ p: 2, width: 250 }}>
         <Autocomplete
+          key={currentGroupId || 'empty'}
           value={currentOption}
           onChange={handleChange}
-          inputValue={inputValue}
-          onInputChange={(event, newInputValue) => {
-            setInputValue(newInputValue);
-          }}
           options={options}
           getOptionLabel={(option) => {
             if (typeof option === 'string') return option;

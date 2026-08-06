@@ -243,6 +243,7 @@ export const createGlobalTaskGroup = async (name) => {
   return newGroupId;
 };
 
+// Legacy alias kept for backward compatibility with tests; new code should use assignGroupToDailyTask.
 export const assignDailyTaskToGlobalGroup = async (taskText, isChecked, groupId) => {
   const newTaskId = db.push(db.ref(appDb, GLOBAL_TASKS_PATH)).key;
   const newTask = {
@@ -255,6 +256,17 @@ export const assignDailyTaskToGlobalGroup = async (taskText, isChecked, groupId)
   };
   await db.set(db.ref(appDb, `${GLOBAL_TASKS_PATH}/${newTaskId}`), newTask);
   return newTaskId;
+};
+
+// Assigns (or un-assigns) a groupId on a daily planner task in-place — the task stays on its date.
+export const assignGroupToDailyTask = async (date, taskIndex, task, groupId) => {
+  const updatedTask = { ...task };
+  if (groupId) {
+    updatedTask.groupId = groupId;
+  } else {
+    delete updatedTask.groupId;
+  }
+  await updateTask(date, taskIndex, updatedTask);
 };
 
 export const moveGlobalTaskToDailyPlanner = async (globalTask, targetDate) => {
@@ -273,6 +285,11 @@ export const moveGlobalTaskToDailyPlanner = async (globalTask, targetDate) => {
     text: globalTask.text || ""
   };
 
+  // Preserve groupId when moving to daily planner
+  if (globalTask.groupId) {
+    taskToMove.groupId = globalTask.groupId;
+  }
+
   let emptyIndex = targetTasks.findIndex(t => !t || !t.text || t.text === "");
   if (emptyIndex !== -1) {
     targetTasks[emptyIndex] = taskToMove;
@@ -290,6 +307,91 @@ export const moveGlobalTaskToDailyPlanner = async (globalTask, targetDate) => {
   }
 
   return true;
+};
+
+// Moves a daily planner task to global_tasks (undated), preserving groupId and text.
+// Used by "Remove date" in Global Tasks View.
+export const moveDailyTaskToGlobal = async (dateKey, taskIndex, task) => {
+  if (!dateKey || taskIndex === undefined || taskIndex === null) return false;
+
+  // Create the task in global_tasks
+  const newTaskId = db.push(db.ref(appDb, GLOBAL_TASKS_PATH)).key;
+  const newGlobalTask = {
+    id: newTaskId,
+    text: task.text || "",
+    checked: task.checkIndex === 1,
+    order: 0,
+    groupId: task.groupId || null,
+    createdAt: Date.now()
+  };
+  await db.set(db.ref(appDb, `${GLOBAL_TASKS_PATH}/${newTaskId}`), newGlobalTask);
+
+  // Clear the daily planner slot
+  const dateTasks = await loadDateTasks(dateKey);
+  if (dateTasks && dateTasks[taskIndex]) {
+    dateTasks[taskIndex] = { checkIndex: 0, text: "" };
+    await updateDateTasks(dateKey, dateTasks);
+  }
+
+  return newTaskId;
+};
+
+// Helper: load just the tasks array for a dateKey
+const loadDateTasks = async (dateKey) => {
+  try {
+    const snapshot = await db.get(db.child(db.ref(appDb), `/${dateKey}/`));
+    if (snapshot.exists()) {
+      const data = snapshot.val() || {};
+      return data[TASKS_PATH] ? normalizeFirebaseArray(data[TASKS_PATH]) : null;
+    }
+  } catch (error) {
+    console.error("loadDateTasks error:", error);
+  }
+  return null;
+};
+
+// Subscribe to all daily planner tasks that have a groupId set (across all dates).
+// Callback receives an array of normalized items with dateKey and taskIndex metadata.
+export const subscribeToAllGroupedTasks = (callback) => {
+  const rootRef = db.ref(appDb, "/");
+
+  const unsubscribe = db.onValue(rootRef, (snapshot) => {
+    const groupedTasks = [];
+    if (snapshot.exists()) {
+      const dbData = snapshot.val() || {};
+      const dateKeys = dbData[DATE_KEYS_PATH] ? Object.keys(dbData[DATE_KEYS_PATH]) : [];
+
+      dateKeys.forEach(dateKey => {
+        if (dbData[dateKey] && dbData[dateKey][TASKS_PATH]) {
+          const rawTasks = dbData[dateKey][TASKS_PATH];
+          const tasks = normalizeFirebaseArray(rawTasks);
+
+          tasks.forEach((task, index) => {
+            if (task && task.groupId) {
+              groupedTasks.push({
+                id: `${dateKey}:${index}`,
+                text: task.text || "",
+                checked: task.checkIndex === 1,
+                groupId: task.groupId,
+                order: 0,
+                source: "daily",
+                dateKey: dateKey,
+                dateIndex: index,
+                checkIndex: task.checkIndex
+              });
+            }
+          });
+        }
+      });
+    }
+    callback(groupedTasks);
+  }, (error) => {
+    if (!error?.message?.includes("Permission denied")) {
+      console.error("Firebase subscribeToAllGroupedTasks error:", error);
+    }
+  });
+
+  return unsubscribe;
 };
 
 

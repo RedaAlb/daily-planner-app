@@ -19,7 +19,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  TextField
+  TextField,
+  Chip
 } from "@mui/material";
 import { DragDropContext, Draggable, Droppable } from "react-beautiful-dnd";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
@@ -33,10 +34,12 @@ import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderIcon from '@mui/icons-material/Folder';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { MobileDatePicker } from '@mui/x-date-pickers/MobileDatePicker';
+import { isToday, isTomorrow, format } from "date-fns";
 import gbLocale from "date-fns/locale/en-GB";
 
 import {
@@ -55,6 +58,27 @@ import DebouncedTextArea from "./ui/DebouncedTextArea";
 import GroupAssigner from "./GroupAssigner";
 
 
+// Parse a dateKey into a Date for sorting
+const parseDateKeyForSort = (dateKey) => {
+  if (!dateKey) return null;
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts;
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+};
+
+// Format a dateKey like "5-8-2026" into display format "Today", "Tomorrow" or "Sun 09 Aug"
+const formatDateLabel = (dateKey) => {
+  if (!dateKey) return null;
+  const date = parseDateKeyForSort(dateKey);
+  if (!date) return dateKey;
+  
+  if (isToday(date)) return "Today";
+  if (isTomorrow(date)) return "Tomorrow";
+  
+  return format(date, "EEE dd MMM");
+};
+
 // Memoized list item component with local state management
 const ListItemComponent = memo(({
   item,
@@ -65,12 +89,16 @@ const ListItemComponent = memo(({
   onMoveToBottom,
   onDelete,
   onOpenGroupAssigner,
+  onUnassignDate,
   showTaskDragHandles = true
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
   const [anchorEl, setAnchorEl] = useState(null);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const menuOpen = Boolean(anchorEl);
+
+  const isDated = Boolean(item.source === 'daily' && item.dateKey);
+  const dateLabel = isDated ? formatDateLabel(item.dateKey) : null;
 
   useEffect(() => {
     setLocalChecked(item.checked);
@@ -117,6 +145,9 @@ const ListItemComponent = memo(({
   const notCheckedIcon = <CheckBoxOutlineBlankIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
   const checkedIcon = <CheckBoxIcon fontSize="inherit" sx={{ color: MAIN_COLOUR }} />;
 
+  // Hide drag handles for dated tasks (they are auto-sorted by date)
+  const showDragHandle = showTaskDragHandles && !isDated;
+
   return (
     <ListItem
       ref={provided.innerRef}
@@ -130,12 +161,12 @@ const ListItemComponent = memo(({
           borderBottom: `${MAIN_LINE_HEIGHT} solid ${MAIN_COLOUR}`,
           minHeight: TASK_ITEM_MIN_HEIGHT,
           width: "100%",
-          paddingLeft: showTaskDragHandles ? 0 : "10px",
+          paddingLeft: showDragHandle ? 0 : "39px",
           paddingRight: "12px",
           boxSizing: "border-box"
         }}
       >
-        {showTaskDragHandles && (
+        {showDragHandle && (
           <Box
             {...provided.dragHandleProps}
             sx={{ display: 'flex', alignItems: 'center', cursor: "grab", pl: "10px", pr: "5px", color: MAIN_COLOUR }}
@@ -176,7 +207,21 @@ const ListItemComponent = memo(({
         </LocalizationProvider>
 
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0, ml: 1 }}>
-          {item.groupId ? (
+          {dateLabel && (
+            <Chip 
+              label={dateLabel} 
+              size="small" 
+              sx={{ 
+                height: 20, 
+                fontSize: '11px', 
+                fontWeight: 500,
+                color: 'text.secondary',
+                backgroundColor: 'rgba(0, 0, 0, 0.05)',
+                mr: 0.5
+              }} 
+            />
+          )}
+          {item.groupId && !isDated ? (
             <IconButton 
               size="small"
               onClick={() => setDatePickerOpen(true)} 
@@ -185,7 +230,7 @@ const ListItemComponent = memo(({
             >
               <CalendarTodayIcon fontSize="small" />
             </IconButton>
-          ) : (
+          ) : !item.groupId ? (
             <IconButton 
               size="small"
               onClick={(e) => onOpenGroupAssigner(e, item.id)} 
@@ -194,7 +239,7 @@ const ListItemComponent = memo(({
             >
               <FolderIcon fontSize="small" />
             </IconButton>
-          )}
+          ) : null}
           <IconButton 
             size="small"
             onClick={handleMenuClick} 
@@ -217,28 +262,46 @@ const ListItemComponent = memo(({
               horizontal: 'right',
             }}
           >
-            <MenuItem onClick={() => handleAction(onMoveToTop)}>
-              <ListItemIcon><ArrowUpwardIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Move to top</ListItemText>
-            </MenuItem>
-            <MenuItem onClick={() => handleAction(onMoveToBottom)}>
-              <ListItemIcon><ArrowDownwardIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Move to bottom</ListItemText>
-            </MenuItem>
-            {item.groupId ? (
+            {!isDated && (
+              <MenuItem onClick={() => handleAction(onMoveToTop)}>
+                <ListItemIcon><ArrowUpwardIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Move to top</ListItemText>
+              </MenuItem>
+            )}
+            {!isDated && (
+              <MenuItem onClick={() => handleAction(onMoveToBottom)}>
+                <ListItemIcon><ArrowDownwardIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Move to bottom</ListItemText>
+              </MenuItem>
+            )}
+            {isDated && onUnassignDate && (
               <MenuItem onClick={() => {
-                onOpenGroupAssigner({ currentTarget: anchorEl }, item.id);
+                onUnassignDate(item.id);
                 handleMenuClose();
               }}>
-                <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Move to group</ListItemText>
+                <ListItemIcon><EventBusyIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Remove date</ListItemText>
               </MenuItem>
-            ) : (
+            )}
+            {!isDated && !item.groupId && (
               <MenuItem onClick={handleOpenDatePicker}>
                 <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>Move to date...</ListItemText>
               </MenuItem>
             )}
+            {!isDated && item.groupId && (
+              <MenuItem onClick={handleOpenDatePicker}>
+                <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Move to date...</ListItemText>
+              </MenuItem>
+            )}
+            <MenuItem onClick={() => {
+              onOpenGroupAssigner({ currentTarget: anchorEl }, item.id);
+              handleMenuClose();
+            }}>
+              <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
+              <ListItemText>{item.groupId ? 'Move to group' : 'Assign group'}</ListItemText>
+            </MenuItem>
             <MenuItem onClick={() => handleAction(onDelete)} sx={{ color: 'error.main' }}>
               <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
               <ListItemText>Delete</ListItemText>
@@ -269,7 +332,8 @@ const OrderedList = ({
     createGroup,
     assignGroup,
     renameGroup,
-    deleteGroup
+    deleteGroup,
+    unassignDate
   } = useGlobalTasks();
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -410,7 +474,7 @@ const OrderedList = ({
     const result = {
       ungrouped: {
         id: 'ungrouped',
-        name: 'Ungrouped Tasks',
+        name: 'Unassigned',
         items: []
       }
     };
@@ -430,6 +494,29 @@ const OrderedList = ({
       } else {
         result.ungrouped.items.push(item);
       }
+    });
+
+    // Sort items within each group: dated first (by date asc), then undated (by order)
+    Object.values(result).forEach(group => {
+      group.items.sort((a, b) => {
+        const aIsDated = a.source === 'daily' && a.dateKey;
+        const bIsDated = b.source === 'daily' && b.dateKey;
+
+        // Dated items come first
+        if (aIsDated && !bIsDated) return -1;
+        if (!aIsDated && bIsDated) return 1;
+
+        // Both dated: sort by date ascending
+        if (aIsDated && bIsDated) {
+          const dateA = parseDateKeyForSort(a.dateKey);
+          const dateB = parseDateKeyForSort(b.dateKey);
+          if (dateA && dateB) return dateA - dateB;
+          return 0;
+        }
+
+        // Both undated: sort by order
+        return (a.order || 0) - (b.order || 0);
+      });
     });
 
     return result;
@@ -486,7 +573,6 @@ const OrderedList = ({
         {(() => {
           const groupKey = 'ungrouped';
           const group = groupedItems[groupKey];
-          if (group.items.length === 0 && sortedGroupKeys.length > 0) return null;
           return (
             <Accordion 
               defaultExpanded 
@@ -557,35 +643,72 @@ const OrderedList = ({
                 </Box>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0 }}>
-                <Droppable droppableId={groupKey} type="task">
-                  {(provided) => (
-                    <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
+                {(() => {
+                  const datedItems = group.items.filter(i => i.source === 'daily' && i.dateKey);
+                  const undatedItems = group.items.filter(i => !(i.source === 'daily' && i.dateKey));
+
+                  return (
+                    <>
                       {group.items.length === 0 && (
-                        <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
-                          No tasks in this group.
-                        </Typography>
+                        <List sx={{ p: 0 }}>
+                          <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
+                            No tasks in this group.
+                          </Typography>
+                        </List>
                       )}
-                      {group.items.map((item, index) => (
-                        <Draggable key={item.id} draggableId={item.id} index={index}>
-                          {(provided) => (
+                      
+                      {/* Dated items (not draggable) */}
+                      {datedItems.length > 0 && (
+                        <List sx={{ p: 0 }}>
+                          {datedItems.map(item => (
                             <ListItemComponent
+                              key={item.id}
                               item={item}
-                              provided={provided}
+                              provided={{ draggableProps: {}, dragHandleProps: {}, innerRef: null }}
                               onToggleCheckbox={toggleCheckbox}
                               onTextChange={handleTextChange}
                               onMoveToTop={moveToTop}
                               onMoveToBottom={moveToBottom}
                               onDelete={openDeleteDialog}
                               onOpenGroupAssigner={handleOpenGroupAssigner}
+                              onUnassignDate={unassignDate}
                               showTaskDragHandles={showTaskDragHandles}
                             />
+                          ))}
+                        </List>
+                      )}
+
+                      {/* Undated items (draggable) */}
+                      {undatedItems.length > 0 && (
+                        <Droppable droppableId={groupKey} type="task">
+                          {(provided) => (
+                            <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
+                              {undatedItems.map((item, index) => (
+                                <Draggable key={item.id} draggableId={item.id} index={index}>
+                                  {(provided) => (
+                                    <ListItemComponent
+                                      item={item}
+                                      provided={provided}
+                                      onToggleCheckbox={toggleCheckbox}
+                                      onTextChange={handleTextChange}
+                                      onMoveToTop={moveToTop}
+                                      onMoveToBottom={moveToBottom}
+                                      onDelete={openDeleteDialog}
+                                      onOpenGroupAssigner={handleOpenGroupAssigner}
+                                      onUnassignDate={unassignDate}
+                                      showTaskDragHandles={showTaskDragHandles}
+                                    />
+                                  )}
+                                </Draggable>
+                              ))}
+                              {provided.placeholder}
+                            </List>
                           )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </List>
-                  )}
-                </Droppable>
+                        </Droppable>
+                      )}
+                    </>
+                  );
+                })()}
               </AccordionDetails>
             </Accordion>
           );
@@ -673,37 +796,74 @@ const OrderedList = ({
                             </Box>
                           </Box>
                         </AccordionSummary>
-                        <AccordionDetails sx={{ p: 0 }}>
-                          <Droppable droppableId={groupKey} type="task">
-                            {(provided) => (
-                              <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
-                                {group.items.length === 0 && (
-                                  <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
-                                    No tasks in this group.
-                                  </Typography>
-                                )}
-                                {group.items.map((item, index) => (
-                                  <Draggable key={item.id} draggableId={item.id} index={index}>
-                                    {(provided) => (
-                                      <ListItemComponent
-                                        item={item}
-                                        provided={provided}
-                                        onToggleCheckbox={toggleCheckbox}
-                                        onTextChange={handleTextChange}
-                                        onMoveToTop={moveToTop}
-                                        onMoveToBottom={moveToBottom}
-                                        onDelete={openDeleteDialog}
-                                        onOpenGroupAssigner={handleOpenGroupAssigner}
-                                        showTaskDragHandles={showTaskDragHandles}
-                                      />
+                            <AccordionDetails sx={{ p: 0 }}>
+                              {(() => {
+                                const datedItems = group.items.filter(i => i.source === 'daily' && i.dateKey);
+                                const undatedItems = group.items.filter(i => !(i.source === 'daily' && i.dateKey));
+
+                                return (
+                                  <>
+                                    {group.items.length === 0 && (
+                                      <List sx={{ p: 0 }}>
+                                        <Typography variant="body2" sx={{ textAlign: "center", py: 3, color: "text.secondary", fontStyle: 'italic' }}>
+                                          No tasks in this group.
+                                        </Typography>
+                                      </List>
                                     )}
-                                  </Draggable>
-                                ))}
-                                {provided.placeholder}
-                              </List>
-                            )}
-                          </Droppable>
-                        </AccordionDetails>
+
+                                    {/* Dated items (not draggable) */}
+                                    {datedItems.length > 0 && (
+                                      <List sx={{ p: 0 }}>
+                                        {datedItems.map(item => (
+                                          <ListItemComponent
+                                            key={item.id}
+                                            item={item}
+                                            provided={{ draggableProps: {}, dragHandleProps: {}, innerRef: null }}
+                                            onToggleCheckbox={toggleCheckbox}
+                                            onTextChange={handleTextChange}
+                                            onMoveToTop={moveToTop}
+                                            onMoveToBottom={moveToBottom}
+                                            onDelete={openDeleteDialog}
+                                            onOpenGroupAssigner={handleOpenGroupAssigner}
+                                            onUnassignDate={unassignDate}
+                                            showTaskDragHandles={showTaskDragHandles}
+                                          />
+                                        ))}
+                                      </List>
+                                    )}
+
+                                    {/* Undated items (draggable) */}
+                                    {undatedItems.length > 0 && (
+                                      <Droppable droppableId={groupKey} type="task">
+                                        {(providedTasks) => (
+                                          <List {...providedTasks.droppableProps} ref={providedTasks.innerRef} sx={{ p: 0 }}>
+                                            {undatedItems.map((item, index) => (
+                                              <Draggable key={item.id} draggableId={item.id} index={index}>
+                                                {(providedTask) => (
+                                                  <ListItemComponent
+                                                    item={item}
+                                                    provided={providedTask}
+                                                    onToggleCheckbox={toggleCheckbox}
+                                                    onTextChange={handleTextChange}
+                                                    onMoveToTop={moveToTop}
+                                                    onMoveToBottom={moveToBottom}
+                                                    onDelete={openDeleteDialog}
+                                                    onOpenGroupAssigner={handleOpenGroupAssigner}
+                                                    onUnassignDate={unassignDate}
+                                                    showTaskDragHandles={showTaskDragHandles}
+                                                  />
+                                                )}
+                                              </Draggable>
+                                            ))}
+                                            {providedTasks.placeholder}
+                                          </List>
+                                        )}
+                                      </Droppable>
+                                    )}
+                                  </>
+                                );
+                              })()}
+                            </AccordionDetails>
                       </Accordion>
                     )}
                   </Draggable>
@@ -825,7 +985,7 @@ const OrderedList = ({
         onConfirm={handleConfirmDeleteGroup}
         itemText={deleteGroupId && groups[deleteGroupId] ? groups[deleteGroupId].name : ""}
         title="Delete Group"
-        textPrefix="Tasks in this group will be moved to Ungrouped. Delete group:"
+        textPrefix="Tasks in this group will be moved to Unassigned. Delete group:"
       />
     </Box>
   );

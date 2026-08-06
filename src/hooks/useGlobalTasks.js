@@ -1,12 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, update, set, remove, push } from 'firebase/database';
-import { appDb } from '../utils/Firebase';
+import { appDb, moveDailyTaskToGlobal, updateTask as updateDailyTask, subscribeToAllGroupedTasks } from '../utils/Firebase';
 import { GLOBAL_TASKS_PATH, GLOBAL_TASK_GROUPS_PATH } from '../utils/constants';
 
+// Parse a dateKey like "5-8-2026" into a Date object
+const parseDateKey = (dateKey) => {
+  if (!dateKey) return null;
+  const parts = dateKey.split('-');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts;
+  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+};
+
 const useGlobalTasks = () => {
-  const [items, setItems] = useState([]);
+  const [globalItems, setGlobalItems] = useState([]);
+  const [dailyGroupedItems, setDailyGroupedItems] = useState([]);
   const [groups, setGroups] = useState({});
 
+  // Subscribe to global_tasks (undated tasks + tasks created in Global Tasks View)
   useEffect(() => {
     const tasksRef = ref(appDb, GLOBAL_TASKS_PATH);
 
@@ -16,7 +27,8 @@ const useGlobalTasks = () => {
         const taskArray = Object.entries(data)
           .map(([id, value]) => ({
             id,
-            ...value
+            ...value,
+            source: 'global'
           }))
           .sort((a, b) => {
             if (a.order === b.order) {
@@ -24,16 +36,33 @@ const useGlobalTasks = () => {
             }
             return (a.order || 0) - (b.order || 0);
           });
-        setItems(taskArray);
+        setGlobalItems(taskArray);
       } else {
-        setItems([]);
+        setGlobalItems([]);
       }
     }, (error) => {
       console.error("Firebase error fetching tasks:", error);
-      setItems([]);
+      setGlobalItems([]);
     });
 
+    return () => tasksListener();
+  }, []);
 
+  // Subscribe to grouped daily tasks (daily planner tasks that have a groupId)
+  useEffect(() => {
+    const unsubscribe = typeof subscribeToAllGroupedTasks === "function"
+      ? subscribeToAllGroupedTasks((groupedTasks) => {
+          setDailyGroupedItems(groupedTasks);
+        })
+      : null;
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, []);
+
+  // Subscribe to groups
+  useEffect(() => {
     const groupsRef = ref(appDb, GLOBAL_TASK_GROUPS_PATH);
     const groupsListener = onValue(groupsRef, (snapshot) => {
       const data = snapshot.val();
@@ -47,27 +76,34 @@ const useGlobalTasks = () => {
       setGroups({});
     });
 
-    return () => {
-      tasksListener();
-      groupsListener();
-    };
+    return () => groupsListener();
   }, []);
 
+  // Merge both sources into a unified items array
+  // Global items already have source: 'global'; daily items have source: 'daily'
+  const items = [...globalItems, ...dailyGroupedItems];
+
   const updateItemsInDatabase = useCallback(async (updatedItems) => {
+    // Only update global tasks (daily-sourced tasks are managed by the daily planner)
+    const globalOnly = updatedItems.filter(i => i.source !== 'daily');
     const updates = {};
     const groupCounters = {};
 
-    updatedItems.forEach((item) => {
+    globalOnly.forEach((item) => {
       const gId = item.groupId || 'ungrouped';
       if (groupCounters[gId] === undefined) groupCounters[gId] = 0;
       
+      // Strip source metadata before saving
+      const { source, dateKey, dateIndex, checkIndex, ...itemData } = item;
       updates[`${GLOBAL_TASKS_PATH}/${item.id}`] = {
-        ...item,
+        ...itemData,
         order: groupCounters[gId]
       };
       groupCounters[gId]++;
     });
-    await update(ref(appDb), updates);
+    if (Object.keys(updates).length > 0) {
+      await update(ref(appDb), updates);
+    }
   }, []);
 
   const handleDragEnd = useCallback(async (result) => {
@@ -93,48 +129,50 @@ const useGlobalTasks = () => {
 
     const groupId = result.source.droppableId === 'ungrouped' ? null : result.source.droppableId;
     
-    const groupItems = items.filter(i => (i.groupId || null) === groupId);
-    const otherItems = items.filter(i => (i.groupId || null) !== groupId);
+    // Only reorder undated (global) tasks within a group — dated tasks are auto-sorted
+    const groupGlobalItems = globalItems.filter(i => (i.groupId || null) === groupId);
+    const otherGlobalItems = globalItems.filter(i => (i.groupId || null) !== groupId);
 
-    const [movedItem] = groupItems.splice(result.source.index, 1);
-    groupItems.splice(result.destination.index, 0, movedItem);
+    // The drag indices correspond to the undated section only (dated tasks are not draggable)
+    const [movedItem] = groupGlobalItems.splice(result.source.index, 1);
+    groupGlobalItems.splice(result.destination.index, 0, movedItem);
 
-    await updateItemsInDatabase([...groupItems, ...otherItems]);
-  }, [items, groups, updateItemsInDatabase]);
+    await updateItemsInDatabase([...groupGlobalItems, ...otherGlobalItems]);
+  }, [globalItems, groups, updateItemsInDatabase]);
 
   const moveToTop = useCallback(async (taskId) => {
-    const itemToMove = items.find(i => i.id === taskId);
+    const itemToMove = globalItems.find(i => i.id === taskId);
     if (!itemToMove) return;
     
     const groupId = itemToMove.groupId || null;
-    const groupItems = items.filter(i => (i.groupId || null) === groupId);
-    const otherItems = items.filter(i => (i.groupId || null) !== groupId);
+    const groupGlobalItems = globalItems.filter(i => (i.groupId || null) === groupId);
+    const otherGlobalItems = globalItems.filter(i => (i.groupId || null) !== groupId);
 
-    const groupIndex = groupItems.findIndex(i => i.id === taskId);
-    const [movedItem] = groupItems.splice(groupIndex, 1);
-    groupItems.unshift(movedItem);
+    const groupIndex = groupGlobalItems.findIndex(i => i.id === taskId);
+    const [movedItem] = groupGlobalItems.splice(groupIndex, 1);
+    groupGlobalItems.unshift(movedItem);
 
-    await updateItemsInDatabase([...groupItems, ...otherItems]);
-  }, [items, updateItemsInDatabase]);
+    await updateItemsInDatabase([...groupGlobalItems, ...otherGlobalItems]);
+  }, [globalItems, updateItemsInDatabase]);
 
   const moveToBottom = useCallback(async (taskId) => {
-    const itemToMove = items.find(i => i.id === taskId);
+    const itemToMove = globalItems.find(i => i.id === taskId);
     if (!itemToMove) return;
 
     const groupId = itemToMove.groupId || null;
-    const groupItems = items.filter(i => (i.groupId || null) === groupId);
-    const otherItems = items.filter(i => (i.groupId || null) !== groupId);
+    const groupGlobalItems = globalItems.filter(i => (i.groupId || null) === groupId);
+    const otherGlobalItems = globalItems.filter(i => (i.groupId || null) !== groupId);
 
-    const groupIndex = groupItems.findIndex(i => i.id === taskId);
-    const [movedItem] = groupItems.splice(groupIndex, 1);
+    const groupIndex = groupGlobalItems.findIndex(i => i.id === taskId);
+    const [movedItem] = groupGlobalItems.splice(groupIndex, 1);
 
-    const uncheckedItems = groupItems.filter(item => !item.checked);
-    const checkedItems = groupItems.filter(item => item.checked);
+    const uncheckedItems = groupGlobalItems.filter(item => !item.checked);
+    const checkedItems = groupGlobalItems.filter(item => item.checked);
 
     const updatedGroupItems = [...uncheckedItems, movedItem, ...checkedItems];
     
-    await updateItemsInDatabase([...updatedGroupItems, ...otherItems]);
-  }, [items, updateItemsInDatabase]);
+    await updateItemsInDatabase([...updatedGroupItems, ...otherGlobalItems]);
+  }, [globalItems, updateItemsInDatabase]);
 
   const onAddTask = useCallback(async (groupId = null) => {
     const newItemId = push(ref(appDb, GLOBAL_TASKS_PATH)).key;
@@ -144,45 +182,94 @@ const useGlobalTasks = () => {
       checked: false,
       order: 0,
       groupId: groupId,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      source: 'global'
     };
 
-    const groupItems = items.filter(item => (item.groupId || null) === groupId);
-    const otherItems = items.filter(item => (item.groupId || null) !== groupId);
+    const groupGlobalItems = globalItems.filter(item => (item.groupId || null) === groupId);
+    const otherGlobalItems = globalItems.filter(item => (item.groupId || null) !== groupId);
 
-    const updatedGroupItems = [newItem, ...groupItems];
-    await updateItemsInDatabase([...updatedGroupItems, ...otherItems]);
-  }, [items, updateItemsInDatabase]);
+    const updatedGroupItems = [newItem, ...groupGlobalItems];
+    await updateItemsInDatabase([...updatedGroupItems, ...otherGlobalItems]);
+  }, [globalItems, updateItemsInDatabase]);
 
   const toggleCheckbox = useCallback(async (taskId, checked) => {
-    const updatedItem = items.find(i => i.id === taskId);
+    // Check if this is a daily-sourced task
+    const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
+    if (dailyItem) {
+      // Route to daily planner update
+      const date = parseDateKey(dailyItem.dateKey);
+      if (date) {
+        await updateDailyTask(date, dailyItem.dateIndex, {
+          checkIndex: checked ? 1 : 0,
+          text: dailyItem.text,
+          groupId: dailyItem.groupId
+        });
+      }
+      return;
+    }
+
+    // Global task
+    const updatedItem = globalItems.find(i => i.id === taskId);
     if (updatedItem) {
+      const { source, dateKey, dateIndex, checkIndex, ...itemData } = updatedItem;
       await set(ref(appDb, `${GLOBAL_TASKS_PATH}/${taskId}`), {
-        ...updatedItem,
+        ...itemData,
         checked: checked,
         checkedAt: Date.now()
       });
     }
-  }, [items]);
+  }, [globalItems, dailyGroupedItems]);
 
   const handleTextChange = useCallback(async (taskId, value) => {
-    const updatedItem = items.find(i => i.id === taskId);
+    // Check if this is a daily-sourced task
+    const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
+    if (dailyItem) {
+      const date = parseDateKey(dailyItem.dateKey);
+      if (date) {
+        await updateDailyTask(date, dailyItem.dateIndex, {
+          checkIndex: dailyItem.checkIndex ?? 0,
+          text: value,
+          groupId: dailyItem.groupId
+        });
+      }
+      return;
+    }
+
+    // Global task
+    const updatedItem = globalItems.find(i => i.id === taskId);
     if (updatedItem) {
+      const { source, dateKey, dateIndex, checkIndex, ...itemData } = updatedItem;
       await set(ref(appDb, `${GLOBAL_TASKS_PATH}/${taskId}`), {
-        ...updatedItem,
+        ...itemData,
         text: value
       });
     }
-  }, [items]);
+  }, [globalItems, dailyGroupedItems]);
 
   const confirmDelete = useCallback(async (taskId) => {
-    const itemToDelete = items.find(i => i.id === taskId);
+    // Check if this is a daily-sourced task
+    const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
+    if (dailyItem) {
+      // Clear groupId and text from the daily planner task
+      const date = parseDateKey(dailyItem.dateKey);
+      if (date) {
+        await updateDailyTask(date, dailyItem.dateIndex, {
+          checkIndex: 0,
+          text: ""
+        });
+      }
+      return;
+    }
+
+    // Global task
+    const itemToDelete = globalItems.find(i => i.id === taskId);
     if (itemToDelete) {
       await remove(ref(appDb, `${GLOBAL_TASKS_PATH}/${itemToDelete.id}`));
-      const remainingItems = items.filter(i => i.id !== taskId);
+      const remainingItems = globalItems.filter(i => i.id !== taskId);
       await updateItemsInDatabase(remainingItems);
     }
-  }, [items, updateItemsInDatabase]);
+  }, [globalItems, dailyGroupedItems, updateItemsInDatabase]);
 
   const createGroup = useCallback(async (name) => {
     const newGroupId = push(ref(appDb, GLOBAL_TASK_GROUPS_PATH)).key;
@@ -197,14 +284,42 @@ const useGlobalTasks = () => {
   }, [groups]);
 
   const assignGroup = useCallback(async (taskId, groupId) => {
-    const updatedItem = items.find(i => i.id === taskId);
+    // Check if this is a daily-sourced task
+    const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
+    if (dailyItem) {
+      const date = parseDateKey(dailyItem.dateKey);
+      if (date) {
+        await updateDailyTask(date, dailyItem.dateIndex, {
+          checkIndex: dailyItem.checkIndex ?? 0,
+          text: dailyItem.text,
+          groupId: groupId
+        });
+      }
+      return;
+    }
+
+    // Global task
+    const updatedItem = globalItems.find(i => i.id === taskId);
     if (updatedItem) {
+      const { source, dateKey, dateIndex, checkIndex, ...itemData } = updatedItem;
       await set(ref(appDb, `${GLOBAL_TASKS_PATH}/${taskId}`), {
-        ...updatedItem,
+        ...itemData,
         groupId: groupId
       });
     }
-  }, [items]);
+  }, [globalItems, dailyGroupedItems]);
+
+  // Remove date from a daily-sourced task, moving it to global_tasks as undated
+  const unassignDate = useCallback(async (taskId) => {
+    const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
+    if (!dailyItem) return;
+
+    await moveDailyTaskToGlobal(dailyItem.dateKey, dailyItem.dateIndex, {
+      text: dailyItem.text,
+      checkIndex: dailyItem.checkIndex ?? 0,
+      groupId: dailyItem.groupId
+    });
+  }, [dailyGroupedItems]);
 
   const renameGroup = useCallback(async (groupId, newName) => {
     if (!groups[groupId]) return;
@@ -217,18 +332,32 @@ const useGlobalTasks = () => {
   const deleteGroup = useCallback(async (groupId) => {
     const updates = {};
 
-    // Unassign all tasks from this group
-    items.forEach(item => {
+    // Unassign all global tasks from this group
+    globalItems.forEach(item => {
       if (item.groupId === groupId) {
         updates[`${GLOBAL_TASKS_PATH}/${item.id}/groupId`] = null;
       }
     });
 
+    // Unassign all daily tasks from this group
+    for (const dailyItem of dailyGroupedItems) {
+      if (dailyItem.groupId === groupId) {
+        const date = parseDateKey(dailyItem.dateKey);
+        if (date) {
+          await updateDailyTask(date, dailyItem.dateIndex, {
+            checkIndex: dailyItem.checkIndex ?? 0,
+            text: dailyItem.text
+            // groupId omitted = removed
+          });
+        }
+      }
+    }
+
     // Remove the group itself
     updates[`${GLOBAL_TASK_GROUPS_PATH}/${groupId}`] = null;
 
     await update(ref(appDb), updates);
-  }, [items, groups]);
+  }, [globalItems, dailyGroupedItems, groups]);
 
   return {
     items,
@@ -243,7 +372,8 @@ const useGlobalTasks = () => {
     createGroup,
     assignGroup,
     renameGroup,
-    deleteGroup
+    deleteGroup,
+    unassignDate
   };
 };
 
