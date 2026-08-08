@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
-import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks } from "../../utils/Firebase";
+import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks, ensureDateKeyExists, compactDateTasks, subscribeToGroups } from "../../utils/Firebase";
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
 
 
@@ -16,21 +16,25 @@ import dailyplannerContext from "../dailyplanner_view/context/dailyplanner-conte
 import { SET_DATE } from "../dailyplanner_view/context/dailyplanner-actions";
 
 const parseDateKey = (key) => {
-  if (!key) return new Date();
-  const [d, m, y] = key.split('-');
-  return new Date(y, m - 1, d);
+  if (!key || typeof key !== "string") return null;
+  const parts = key.split('-');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts;
+  const dateObj = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+  return isNaN(dateObj.getTime()) ? null : dateObj;
 };
 
 const TaskDateGroup = memo(function TaskDateGroup({
   dateKey,
   dateTasks,
+  groups,
   handleTaskUpdate,
   handleMoveToDate,
   handleAssignGroup,
   onDateHeaderClick
 }) {
   const dateObj = parseDateKey(dateKey);
-  const isDateToday = isToday(dateObj);
+  const isDateToday = dateObj ? isToday(dateObj) : false;
 
   const dateTasksArray = normalizeFirebaseArray(dateTasks);
   const visibleTasks = dateTasksArray
@@ -71,24 +75,28 @@ const TaskDateGroup = memo(function TaskDateGroup({
                 No pending tasks.
               </div>
             ) : (
-              visibleTasks.map((task, visibleIndex) => (
-                <Draggable key={`${dateKey}-${task.originalIndex}`} draggableId={`${dateKey}-${task.originalIndex}`} index={visibleIndex}>
-                  {(provided) => (
-                    <DailyTaskItem
-                      innerRef={provided.innerRef}
-                      draggableProps={provided.draggableProps}
-                      dragHandleProps={provided.dragHandleProps}
-                      task={task}
-                      index={task.originalIndex}
-                      date={dateObj}
-                      forceShowActions={true}
-                      onTaskUpdate={(index, updatedTask) => handleTaskUpdate(dateKey, index, updatedTask)}
-                      onMoveToDate={handleMoveToDate}
-                      onAssignGroup={handleAssignGroup}
-                    />
-                  )}
-                </Draggable>
-              ))
+              visibleTasks.map((task, visibleIndex) => {
+                const groupName = (task.groupId && groups && groups[task.groupId]) ? groups[task.groupId].name : null;
+                return (
+                  <Draggable key={`${dateKey}-${task.originalIndex}`} draggableId={`${dateKey}-${task.originalIndex}`} index={visibleIndex}>
+                    {(provided) => (
+                      <DailyTaskItem
+                        innerRef={provided.innerRef}
+                        draggableProps={provided.draggableProps}
+                        dragHandleProps={provided.dragHandleProps}
+                        task={task}
+                        index={task.originalIndex}
+                        date={dateObj}
+                        forceShowActions={true}
+                        groupName={groupName}
+                        onTaskUpdate={(index, updatedTask) => handleTaskUpdate(dateKey, index, updatedTask)}
+                        onMoveToDate={handleMoveToDate}
+                        onAssignGroup={handleAssignGroup}
+                      />
+                    )}
+                  </Draggable>
+                );
+              })
             )}
             {provided.placeholder}
           </div>
@@ -101,6 +109,7 @@ const TaskDateGroup = memo(function TaskDateGroup({
 function TasksView() {
   const [dateGroups, setDateGroups] = useState({});
   const [sortedDateKeys, setSortedDateKeys] = useState([]);
+  const [groups, setGroups] = useState({});
   const [loading, setLoading] = useState(true);
 
   const dailyPlannerCtx = useContext(dailyplannerContext);
@@ -133,11 +142,12 @@ function TasksView() {
       setLoading(false);
     };
 
-
-    const unsubscribe = typeof subscribeToAllTasks === "function" ? subscribeToAllTasks(processAllTasks) : null;
+    const unsubscribeTasks = typeof subscribeToAllTasks === "function" ? subscribeToAllTasks(processAllTasks) : null;
+    const unsubscribeGroups = typeof subscribeToGroups === "function" ? subscribeToGroups(setGroups) : null;
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribeTasks) unsubscribeTasks();
+      if (unsubscribeGroups) unsubscribeGroups();
     };
   }, []);
 
@@ -186,6 +196,7 @@ function TasksView() {
       setTimeout(() => {
         updateDateTasks(sourceDateKey, sourceTasks);
         updateDateTasks(targetDateKey, destTasks);
+        ensureDateKeyExists(targetDateKey);
       }, 0);
 
       return newGroups;
@@ -202,7 +213,7 @@ function TasksView() {
       setTimeout(() => {
         updateDateTasks(sourceDateKey, sourceTasks);
       }, 0);
-      
+
       return {
         ...prev,
         [sourceDateKey]: sourceTasks
@@ -222,10 +233,10 @@ function TasksView() {
     setDateGroups(prev => {
       const rawSource = prev[sourceDateKey] || [];
       const sourceTasks = normalizeFirebaseArray(rawSource);
-      
+
       const rawDest = prev[destDateKey] || [];
-      const destTasks = sourceDateKey === destDateKey 
-        ? sourceTasks 
+      const destTasks = sourceDateKey === destDateKey
+        ? sourceTasks
         : normalizeFirebaseArray(rawDest);
 
       const visibleSourceTasks = sourceTasks.map((t, i) => ({ ...t, originalIndex: i }))
@@ -244,51 +255,61 @@ function TasksView() {
         for (let i = 0; i < newFullTasks.length; i++) {
           const t = newFullTasks[i];
           if (t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0) {
-            newFullTasks[i] = { checkIndex: newVisible[visibleIdx].checkIndex, text: newVisible[visibleIdx].text };
+            const { originalIndex, ...preservedTask } = newVisible[visibleIdx];
+            newFullTasks[i] = preservedTask;
             visibleIdx++;
           }
         }
 
-        updateDateTasks(sourceDateKey, newFullTasks);
-        return { ...prev, [sourceDateKey]: newFullTasks };
+        const compactedFull = compactDateTasks(newFullTasks);
+        updateDateTasks(sourceDateKey, compactedFull);
+        return { ...prev, [sourceDateKey]: compactedFull };
       } else {
         sourceTasks[draggedTask.originalIndex] = { checkIndex: 0, text: "" };
 
         const visibleDestTasks = destTasks
-          .filter(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0)
-          .map(t => ({ checkIndex: t.checkIndex, text: t.text }));
+          .filter(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
 
-        visibleDestTasks.splice(destination.index, 0, { checkIndex: draggedTask.checkIndex, text: draggedTask.text });
+        const { originalIndex: _, ...draggedPreserved } = draggedTask;
+
+        let actualIndex = 0;
+        if (destination.index < visibleDestTasks.length) {
+          let visibleCount = 0;
+          for (let i = 0; i < destTasks.length; i++) {
+            if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
+              if (visibleCount === destination.index) {
+                actualIndex = i;
+                break;
+              }
+              visibleCount++;
+            }
+          }
+        } else if (visibleDestTasks.length > 0) {
+          let lastVisibleIdx = -1;
+          for (let i = 0; i < destTasks.length; i++) {
+            if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
+              lastVisibleIdx = i;
+            }
+          }
+          actualIndex = lastVisibleIdx + 1;
+        } else {
+          actualIndex = 0;
+        }
 
         const newDestTasks = [...destTasks];
+        newDestTasks.splice(actualIndex, 0, draggedPreserved);
 
-        for (let i = 0; i < newDestTasks.length; i++) {
-          if (newDestTasks[i] && newDestTasks[i].text && typeof newDestTasks[i].text === "string" && newDestTasks[i].text.trim() !== "" && newDestTasks[i].checkIndex === 0) {
-            newDestTasks[i] = { checkIndex: 0, text: "" };
-          }
-        }
+        const compactedSource = compactDateTasks(sourceTasks);
+        const compactedDest = compactDateTasks(newDestTasks);
 
-        let vIdx = 0;
-        for (let i = 0; i < newDestTasks.length; i++) {
-          if (vIdx >= visibleDestTasks.length) break;
-          if (!newDestTasks[i] || !newDestTasks[i].text || typeof newDestTasks[i].text !== "string" || newDestTasks[i].text.trim() === "") {
-            newDestTasks[i] = visibleDestTasks[vIdx];
-            vIdx++;
-          }
-        }
-
-        while (vIdx < visibleDestTasks.length) {
-          newDestTasks.push(visibleDestTasks[vIdx]);
-          vIdx++;
-        }
-
-        updateDateTasks(sourceDateKey, sourceTasks);
-        updateDateTasks(destDateKey, newDestTasks);
+        updateDateTasks(sourceDateKey, compactedSource);
+        updateDateTasks(destDateKey, compactedDest);
+        ensureDateKeyExists(destDateKey);
 
         return {
           ...prev,
-          [sourceDateKey]: sourceTasks,
-          [destDateKey]: newDestTasks
+          [sourceDateKey]: compactedSource,
+          [destDateKey]: compactedDest
         };
       }
     });
@@ -302,7 +323,17 @@ function TasksView() {
     );
   }
 
-  const hasAnyPendingTasks = sortedDateKeys.some(dateKey => {
+  const activeDateKeys = sortedDateKeys.filter(dateKey => {
+    const dateObj = parseDateKey(dateKey);
+    if (!dateObj) return false;
+    if (isToday(dateObj)) return true; // Always show today
+
+    const tasks = dateGroups[dateKey];
+    const taskArray = normalizeFirebaseArray(tasks);
+    return taskArray.some(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
+  });
+
+  const hasAnyPendingTasks = activeDateKeys.some(dateKey => {
     const tasks = dateGroups[dateKey];
     const taskArray = normalizeFirebaseArray(tasks);
     return taskArray.some(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
@@ -314,11 +345,12 @@ function TasksView() {
 
       <div className="tasks-view-content" style={{ marginLeft: DEFAULT_HORI_GAP, marginRight: DEFAULT_HORI_GAP, marginTop: "20px" }}>
         <DragDropContext onDragEnd={onDragEnd}>
-          {sortedDateKeys.map((dateKey) => (
+          {activeDateKeys.map((dateKey) => (
             <TaskDateGroup
               key={dateKey}
               dateKey={dateKey}
               dateTasks={dateGroups[dateKey]}
+              groups={groups}
               handleTaskUpdate={handleTaskUpdate}
               handleMoveToDate={handleMoveToDate}
               handleAssignGroup={handleAssignGroup}

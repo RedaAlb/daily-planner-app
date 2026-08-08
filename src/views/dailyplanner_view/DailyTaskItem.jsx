@@ -1,6 +1,6 @@
 import React, { memo, useContext, useEffect, useState } from "react";
 
-import { Box, IconButton, TextareaAutosize, Menu, MenuItem, ListItemIcon, ListItemText } from "@mui/material";
+import { Box, IconButton, TextareaAutosize, Menu, MenuItem, ListItemIcon, ListItemText, Chip } from "@mui/material";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import EastIcon from '@mui/icons-material/East';
@@ -17,7 +17,7 @@ import gbLocale from "date-fns/locale/en-GB";
 import dailyplannerContext from "./context/dailyplanner-context";
 import useDebounce from "../../hooks/useDebounce";
 
-import { initDate, updateTask, getDbDateKey, loadDate, updateDateTasks } from "../../utils/Firebase";
+import { initDate, updateTask, getDbDateKey, loadDate, updateDateTasks, ensureDateKeyExists, compactDateTasks } from "../../utils/Firebase";
 import { MAIN_COLOUR, MAIN_LINE_HEIGHT, SECONDARY_FONT_SIZE, TASK_ITEM_MIN_HEIGHT, NUM_TASK_ITEMS, TASKS_PATH } from "../../utils/constants";
 import { SET_TASKS } from "./context/dailyplanner-actions";
 
@@ -65,7 +65,8 @@ function DailyTaskItem(props) {
   };
 
   const onTickClick = (checkIndex) => {
-    const newTask = { ...task, checkIndex: checkIndex };
+    const isChecked = checkIndex === 1;
+    const newTask = { ...task, checkIndex: checkIndex, checked: isChecked };
     setTask(newTask);
 
     if (props.onTaskUpdate) {
@@ -79,10 +80,12 @@ function DailyTaskItem(props) {
   const debouncedUpdateTask = useDebounce((newTask) => {
     if (props.onTaskUpdate) {
       props.onTaskUpdate(props.index, newTask);
-    } else {
-      updateTask(itemDate, props.index, newTask);
-      initDate(itemDate, state?.time, dispatch);
     }
+  }, 300);
+
+  const debouncedUpdateTaskText = useDebounce((text) => {
+    updateTask(itemDate, props.index, { text });
+    initDate(itemDate, state?.time, dispatch);
   }, 300);
 
   const onTextChange = (event) => {
@@ -90,15 +93,20 @@ function DailyTaskItem(props) {
     const newTask = { ...task, text: textboxValue };
 
     setTask(newTask);
-    debouncedUpdateTask(newTask);
+    if (props.onTaskUpdate) {
+      debouncedUpdateTask(newTask);
+    } else {
+      debouncedUpdateTaskText(textboxValue);
+    }
   };
 
   const handleBlur = (e) => {
-    const currentTask = { ...task, text: e.target.value };
+    const text = e.target.value;
+    const currentTask = { ...task, text };
     if (props.onTaskUpdate) {
       props.onTaskUpdate(props.index, currentTask);
     } else {
-      updateTask(itemDate, props.index, currentTask);
+      updateTask(itemDate, props.index, { text });
       initDate(itemDate, state?.time, dispatch);
     }
   };
@@ -132,11 +140,16 @@ function DailyTaskItem(props) {
     }
 
     updateDateTasks(targetDateKey, targetTasks);
+    ensureDateKeyExists(targetDateKey);
 
     const currentTasks = state?.tasks ? [...state.tasks] : [];
-    currentTasks[props.index] = { checkIndex: 0, text: "" };
+    currentTasks[props.index] = { checkIndex: 0, checked: false, text: "" };
 
-    updateDateTasks(currentDateKey, currentTasks);
+    const compactedCurrent = compactDateTasks(currentTasks);
+    updateDateTasks(currentDateKey, compactedCurrent);
+    if (dispatch) {
+      dispatch({ type: SET_TASKS, payload: compactedCurrent });
+    }
   };
 
   const handleMoveNextDay = () => {
@@ -254,6 +267,20 @@ function DailyTaskItem(props) {
 
       {showContextMenuButton && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, ml: 0.5 }}>
+          {props.groupName && (
+            <Chip
+              label={props.groupName}
+              size="small"
+              sx={{
+                height: 20,
+                fontSize: "11px",
+                fontWeight: 500,
+                color: "white",
+                backgroundColor: MAIN_COLOUR,
+                mr: 0.5
+              }}
+            />
+          )}
           <IconButton
             size="small"
             onClick={handleMenuClick}

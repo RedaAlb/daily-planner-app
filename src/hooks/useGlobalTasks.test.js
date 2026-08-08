@@ -116,7 +116,7 @@ describe('useGlobalTasks hook', () => {
     expect(setArgs[1].checked).toBe(true);
   });
 
-  it('routes toggleCheckbox to updateDailyTask for daily-sourced tasks', async () => {
+  it('routes toggleCheckbox to updateDailyTask using partial update for daily-sourced tasks', async () => {
     subscribeGroupedMock.mockImplementation((callback) => {
       callback([{
         id: '5-8-2026:0',
@@ -137,11 +137,94 @@ describe('useGlobalTasks hook', () => {
       await result.current.toggleCheckbox('5-8-2026:0', true);
     });
 
-    expect(updateDailyTask).toHaveBeenCalled();
     expect(updateDailyTask).toHaveBeenCalledWith(
       expect.any(Date),
       0,
-      { checkIndex: 1, text: 'Daily Task', groupId: 'group-1' }
+      { checkIndex: 1 }
+    );
+  });
+
+  it('routes handleTextChange to updateDailyTask using partial update for daily-sourced tasks', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([{
+        id: '5-8-2026:0',
+        text: 'Daily Task',
+        checked: false,
+        groupId: 'group-1',
+        source: 'daily',
+        dateKey: '5-8-2026',
+        dateIndex: 0,
+        checkIndex: 0
+      }]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.handleTextChange('5-8-2026:0', 'Updated Text');
+    });
+
+    expect(updateDailyTask).toHaveBeenCalledWith(
+      expect.any(Date),
+      0,
+      { text: 'Updated Text' }
+    );
+  });
+
+  it('routes assignGroup to updateDailyTask using partial update for daily-sourced tasks', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([{
+        id: '5-8-2026:0',
+        text: 'Daily Task',
+        checked: false,
+        groupId: 'group-1',
+        source: 'daily',
+        dateKey: '5-8-2026',
+        dateIndex: 0,
+        checkIndex: 0
+      }]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.assignGroup('5-8-2026:0', 'group-2');
+    });
+
+    expect(updateDailyTask).toHaveBeenCalledWith(
+      expect.any(Date),
+      0,
+      { groupId: 'group-2' }
+    );
+  });
+
+  it('assignGroup with null groupId on a daily-sourced task calls moveDailyTaskToGlobal', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([{
+        id: '5-8-2026:0',
+        text: 'Daily Task',
+        checked: false,
+        groupId: 'group-1',
+        source: 'daily',
+        dateKey: '5-8-2026',
+        dateIndex: 0,
+        checkIndex: 0
+      }]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.assignGroup('5-8-2026:0', null);
+    });
+
+    expect(moveDailyTaskToGlobal).toHaveBeenCalledWith(
+      '5-8-2026',
+      0,
+      { text: 'Daily Task', checkIndex: 0, groupId: null }
     );
   });
 
@@ -166,7 +249,6 @@ describe('useGlobalTasks hook', () => {
       await result.current.unassignDate('5-8-2026:0');
     });
 
-    expect(moveDailyTaskToGlobal).toHaveBeenCalled();
     expect(moveDailyTaskToGlobal).toHaveBeenCalledWith(
       '5-8-2026',
       0,

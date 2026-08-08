@@ -7,7 +7,8 @@ import { updateTask } from '../../utils/Firebase';
 vi.mock('../../utils/Firebase', () => ({
   updateTask: vi.fn(),
   getDbDateKey: vi.fn(),
-  initDate: vi.fn()
+  initDate: vi.fn(),
+  ensureDateKeyExists: vi.fn()
 }));
 
 // Removed DebouncedTextArea mock as DailyTaskItem uses MUI TextareaAutosize

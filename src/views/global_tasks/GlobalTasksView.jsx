@@ -1,14 +1,26 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useContext } from "react";
+import { useNavigate } from "react-router-dom";
 
 import "../../css/global-tasks-view.css";
 
 import GlobalTasksTopbar from "./GlobalTasksTopbar";
 import OrderedList from "../../components/OrderedList";
+import dailyplannerContext from "../dailyplanner_view/context/dailyplanner-context";
+import { SET_DATE } from "../dailyplanner_view/context/dailyplanner-actions";
 
 const STORAGE_KEY_GROUP_HANDLES = "global_tasks_show_group_drag_handles";
 const STORAGE_KEY_TASK_HANDLES = "global_tasks_show_task_drag_handles";
 
 function GlobalTasksView(props) {
+  const dailyPlannerCtx = useContext(dailyplannerContext);
+  const navigate = useNavigate();
+
+  const handleDateClick = useCallback((dateObj) => {
+    if (dailyPlannerCtx && dailyPlannerCtx.dispatch) {
+      dailyPlannerCtx.dispatch({ type: SET_DATE, payload: dateObj });
+    }
+    navigate("/");
+  }, [dailyPlannerCtx, navigate]);
   const [showGroupDragHandles, setShowGroupDragHandles] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_GROUP_HANDLES);
@@ -68,6 +80,7 @@ function GlobalTasksView(props) {
             showTaskDragHandles={showTaskDragHandles}
             toggleExpandAllSignal={toggleExpandAllSignal}
             setIsAllExpanded={setIsAllExpanded}
+            onDateClick={handleDateClick}
           />
         </div>
       </div>

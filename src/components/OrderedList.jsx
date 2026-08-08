@@ -65,7 +65,7 @@ const parseDateKeyForSort = (dateKey) => {
   const parts = dateKey.split('-');
   if (parts.length !== 3) return null;
   const [d, m, y] = parts;
-  return new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  return new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
 };
 
 // Format a dateKey like "5-8-2026" into display format "Today", "Tomorrow" or "Sun 09 Aug"
@@ -91,7 +91,8 @@ const ListItemComponent = memo(({
   onDelete,
   onOpenGroupAssigner,
   onUnassignDate,
-  showTaskDragHandles = true
+  showTaskDragHandles = true,
+  onDateClick
 }) => {
   const [localChecked, setLocalChecked] = useState(item.checked);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -211,14 +212,21 @@ const ListItemComponent = memo(({
           {dateLabel && (
             <Chip 
               label={dateLabel} 
-              size="small" 
+              size="small"
+              onClick={() => {
+                if (onDateClick && item.dateKey) {
+                  const dateObj = parseDateKeyForSort(item.dateKey);
+                  if (dateObj) onDateClick(dateObj);
+                }
+              }}
               sx={{ 
                 height: 20, 
                 fontSize: '11px', 
                 fontWeight: 500,
                 color: 'text.secondary',
                 backgroundColor: 'rgba(0, 0, 0, 0.05)',
-                mr: 0.5
+                mr: 0.5,
+                cursor: 'pointer'
               }} 
             />
           )}
@@ -318,7 +326,8 @@ const OrderedList = ({
   showGroupDragHandles = false,
   showTaskDragHandles = true,
   toggleExpandAllSignal,
-  setIsAllExpanded
+  setIsAllExpanded,
+  onDateClick
 }) => {
   const {
     items,
@@ -683,6 +692,7 @@ const OrderedList = ({
                               onOpenGroupAssigner={handleOpenGroupAssigner}
                               onUnassignDate={unassignDate}
                               showTaskDragHandles={showTaskDragHandles}
+                              onDateClick={onDateClick}
                             />
                           ))}
                         </List>
@@ -694,7 +704,7 @@ const OrderedList = ({
                           {(provided) => (
                             <List {...provided.droppableProps} ref={provided.innerRef} sx={{ p: 0 }}>
                               {undatedItems.map((item, index) => (
-                                <Draggable key={item.id} draggableId={item.id} index={index}>
+                                <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={!showTaskDragHandles}>
                                   {(provided) => (
                                     <ListItemComponent
                                       item={item}
@@ -707,6 +717,7 @@ const OrderedList = ({
                                       onOpenGroupAssigner={handleOpenGroupAssigner}
                                       onUnassignDate={unassignDate}
                                       showTaskDragHandles={showTaskDragHandles}
+                                      onDateClick={onDateClick}
                                     />
                                   )}
                                 </Draggable>
@@ -730,7 +741,7 @@ const OrderedList = ({
               {sortedGroupKeys.map((groupKey, index) => {
                 const group = groupedItems[groupKey];
                 return (
-                  <Draggable key={groupKey} draggableId={groupKey} index={index}>
+                  <Draggable key={groupKey} draggableId={groupKey} index={index} isDragDisabled={!showGroupDragHandles}>
                     {(providedGroup) => (
                       <Accordion 
                         ref={providedGroup.innerRef}
@@ -837,6 +848,7 @@ const OrderedList = ({
                                             onOpenGroupAssigner={handleOpenGroupAssigner}
                                             onUnassignDate={unassignDate}
                                             showTaskDragHandles={showTaskDragHandles}
+                                            onDateClick={onDateClick}
                                           />
                                         ))}
                                       </List>
@@ -848,7 +860,7 @@ const OrderedList = ({
                                         {(providedTasks) => (
                                           <List {...providedTasks.droppableProps} ref={providedTasks.innerRef} sx={{ p: 0 }}>
                                             {undatedItems.map((item, index) => (
-                                              <Draggable key={item.id} draggableId={item.id} index={index}>
+                                              <Draggable key={item.id} draggableId={item.id} index={index} isDragDisabled={!showTaskDragHandles}>
                                                 {(providedTask) => (
                                                   <ListItemComponent
                                                     item={item}
@@ -861,6 +873,7 @@ const OrderedList = ({
                                                     onOpenGroupAssigner={handleOpenGroupAssigner}
                                                     onUnassignDate={unassignDate}
                                                     showTaskDragHandles={showTaskDragHandles}
+                                                    onDateClick={onDateClick}
                                                   />
                                                 )}
                                               </Draggable>

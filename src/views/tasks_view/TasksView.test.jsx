@@ -8,6 +8,11 @@ import { BrowserRouter } from 'react-router-dom';
 vi.mock('../../utils/Firebase', () => ({
   updateDateTasks: vi.fn(),
   subscribeToAllTasks: vi.fn(),
+  subscribeToGroups: vi.fn((cb) => {
+    cb({});
+    return () => {};
+  }),
+  ensureDateKeyExists: vi.fn(),
   normalizeFirebaseArray: vi.fn((data) => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {

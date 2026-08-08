@@ -213,9 +213,7 @@ const useGlobalTasks = () => {
       const date = parseDateKey(dailyItem.dateKey);
       if (date) {
         await updateDailyTask(date, dailyItem.dateIndex, {
-          checkIndex: checked ? 1 : 0,
-          text: dailyItem.text,
-          groupId: dailyItem.groupId
+          checkIndex: checked ? 1 : 0
         });
       }
       return;
@@ -240,9 +238,7 @@ const useGlobalTasks = () => {
       const date = parseDateKey(dailyItem.dateKey);
       if (date) {
         await updateDailyTask(date, dailyItem.dateIndex, {
-          checkIndex: dailyItem.checkIndex ?? 0,
-          text: value,
-          groupId: dailyItem.groupId
+          text: value
         });
       }
       return;
@@ -263,12 +259,13 @@ const useGlobalTasks = () => {
     // Check if this is a daily-sourced task
     const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
     if (dailyItem) {
-      // Clear groupId and text from the daily planner task
+      // Clear groupId, text, and checkIndex from the daily planner task
       const date = parseDateKey(dailyItem.dateKey);
       if (date) {
         await updateDailyTask(date, dailyItem.dateIndex, {
           checkIndex: 0,
-          text: ""
+          text: "",
+          groupId: null
         });
       }
       return;
@@ -299,13 +296,20 @@ const useGlobalTasks = () => {
     // Check if this is a daily-sourced task
     const dailyItem = dailyGroupedItems.find(i => i.id === taskId);
     if (dailyItem) {
-      const date = parseDateKey(dailyItem.dateKey);
-      if (date) {
-        await updateDailyTask(date, dailyItem.dateIndex, {
-          checkIndex: dailyItem.checkIndex ?? 0,
+      if (!groupId) {
+        // Unassigning group from a daily-sourced task in Global Tasks View moves it to global_tasks (ungrouped)
+        await moveDailyTaskToGlobal(dailyItem.dateKey, dailyItem.dateIndex, {
           text: dailyItem.text,
-          groupId: groupId
+          checkIndex: dailyItem.checkIndex ?? 0,
+          groupId: null
         });
+      } else {
+        const date = parseDateKey(dailyItem.dateKey);
+        if (date) {
+          await updateDailyTask(date, dailyItem.dateIndex, {
+            groupId: groupId
+          });
+        }
       }
       return;
     }
@@ -316,7 +320,7 @@ const useGlobalTasks = () => {
       const { source, dateKey, dateIndex, checkIndex, ...itemData } = updatedItem;
       await set(ref(appDb, `${GLOBAL_TASKS_PATH}/${taskId}`), {
         ...itemData,
-        groupId: groupId
+        groupId: groupId || null
       });
     }
   }, [globalItems, dailyGroupedItems]);
@@ -351,25 +355,24 @@ const useGlobalTasks = () => {
       }
     });
 
-    // Unassign all daily tasks from this group
+    if (Object.keys(updates).length > 0) {
+      await update(ref(appDb), updates);
+    }
+
+    // Move all daily tasks in this group to global_tasks (ungrouped) so they move to Ungrouped instead of vanishing
     for (const dailyItem of dailyGroupedItems) {
       if (dailyItem.groupId === groupId) {
-        const date = parseDateKey(dailyItem.dateKey);
-        if (date) {
-          await updateDailyTask(date, dailyItem.dateIndex, {
-            checkIndex: dailyItem.checkIndex ?? 0,
-            text: dailyItem.text
-            // groupId omitted = removed
-          });
-        }
+        await moveDailyTaskToGlobal(dailyItem.dateKey, dailyItem.dateIndex, {
+          text: dailyItem.text,
+          checkIndex: dailyItem.checkIndex ?? 0,
+          groupId: null
+        });
       }
     }
 
     // Remove the group itself
-    updates[`${GLOBAL_TASK_GROUPS_PATH}/${groupId}`] = null;
-
-    await update(ref(appDb), updates);
-  }, [globalItems, dailyGroupedItems, groups]);
+    await remove(ref(appDb, `${GLOBAL_TASK_GROUPS_PATH}/${groupId}`));
+  }, [globalItems, dailyGroupedItems]);
 
   return {
     items,
