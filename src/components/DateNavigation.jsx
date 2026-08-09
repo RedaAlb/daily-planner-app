@@ -96,17 +96,20 @@ function DateNavigation(props) {
 
 
   useEffect(() => {
-    if (state.time === "") {
+    if (!state.time || typeof state.time !== "string" || state.time === "") {
       setCurrentDate(state.currentDate);
     } else {
       const updatedDate = new Date(state.currentDate);
-
       const timeSplit = state.time.split(":");
-      updatedDate.setHours(timeSplit[0]);
-      updatedDate.setMinutes(timeSplit[1]);
-      setCurrentDate(updatedDate);
+      if (timeSplit.length === 2 && !isNaN(parseInt(timeSplit[0])) && !isNaN(parseInt(timeSplit[1]))) {
+        updatedDate.setHours(parseInt(timeSplit[0]));
+        updatedDate.setMinutes(parseInt(timeSplit[1]));
+        setCurrentDate(updatedDate);
+      } else {
+        setCurrentDate(state.currentDate);
+      }
     }
-  }, [state.currentDate, state.time])
+  }, [state.currentDate, state.time]);
 
 
   return (
@@ -118,11 +121,14 @@ function DateNavigation(props) {
           ampm={false}
           value={currentDate}
           onChange={onDateChange}
-          renderInput={(params) =>
-            <TextField fullWidth  {...params} />
-          }
+          renderInput={(params) => (
+            <TextField fullWidth {...params} />
+          )}
           renderDay={(date, _value, DayComponentProps) => {
-            const dateIsPopulated = Array.isArray(state.dateKeys) && state.dateKeys.includes(getDbDateKey(date));
+            const targetKey = getDbDateKey(date);
+            const dateIsPopulated = Array.isArray(state.dateKeys)
+              ? state.dateKeys.includes(targetKey)
+              : (state.dateKeys && typeof state.dateKeys === "object" ? Boolean(state.dateKeys[targetKey]) : false);
             const isMarked = !DayComponentProps.outsideCurrentMonth && dateIsPopulated;
 
             return (

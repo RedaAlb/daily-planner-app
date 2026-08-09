@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
 import TodayIcon from "@mui/icons-material/Today";
 import FormatListNumberedIcon from "@mui/icons-material/FormatListNumbered";
-import { TASKS_VIEW_PATH } from "../utils/constants";
+import CheckBoxIcon from "@mui/icons-material/CheckBox";
+import { TASKS_VIEW_PATH, GLOBAL_TASKS_VIEW_PATH } from "../utils/constants";
 
 function BottomNav() {
   const navigate = useNavigate();
@@ -13,14 +14,16 @@ function BottomNav() {
   let activeValue = "/";
   if (location.pathname === TASKS_VIEW_PATH) {
     activeValue = TASKS_VIEW_PATH;
+  } else if (location.pathname === GLOBAL_TASKS_VIEW_PATH) {
+    activeValue = GLOBAL_TASKS_VIEW_PATH;
   }
 
   const handleChange = (event, newValue) => {
     navigate(newValue);
   };
 
-  // Only show on the two primary routes
-  if (location.pathname !== "/" && location.pathname !== TASKS_VIEW_PATH) {
+  // Only show on the primary routes
+  if (location.pathname !== "/" && location.pathname !== TASKS_VIEW_PATH && location.pathname !== GLOBAL_TASKS_VIEW_PATH) {
     return null;
   }
 
@@ -33,6 +36,7 @@ function BottomNav() {
       >
         <BottomNavigationAction label="Daily Planner" value="/" icon={<TodayIcon />} />
         <BottomNavigationAction label="Tasks" value={TASKS_VIEW_PATH} icon={<FormatListNumberedIcon />} />
+        <BottomNavigationAction label="Global Tasks" value={GLOBAL_TASKS_VIEW_PATH} icon={<CheckBoxIcon />} />
       </BottomNavigation>
     </Paper>
   );
