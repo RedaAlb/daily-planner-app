@@ -2,11 +2,12 @@ import React from 'react';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TasksView from './TasksView';
-import { updateDateTasks, subscribeToAllTasks, moveDailyTaskToGlobal } from '../../utils/Firebase';
+import { updateDateTasks, updateTask, subscribeToAllTasks, moveDailyTaskToGlobal } from '../../utils/Firebase';
 import { BrowserRouter } from 'react-router-dom';
 
 vi.mock('../../utils/Firebase', () => ({
   updateDateTasks: vi.fn(),
+  updateTask: vi.fn(),
   subscribeToAllTasks: vi.fn(),
   subscribeToGroups: vi.fn((cb) => {
     cb({});
@@ -138,7 +139,7 @@ describe('TasksView', () => {
     expect(screen.queryByTestId('task-Migrated Task')).not.toBeInTheDocument();
   });
 
-  it('calls updateDateTasks when a task is updated', async () => {
+  it('updates only the edited slot when a task is updated, without rewriting the whole date', async () => {
     await act(async () => {
       customRender(<TasksView />);
     });
@@ -149,12 +150,22 @@ describe('TasksView', () => {
       fireEvent.click(updateBtn);
     });
 
-    expect(updateDateTasks).toHaveBeenCalledWith("22-6-2026", expect.arrayContaining([
-      expect.objectContaining({ text: "Incomplete Task updated", checkIndex: 0 }),
-      { text: "Completed Task", checkIndex: 1 },
-      { text: "Migrated Task", checkIndex: 2 },
-      { text: "", checkIndex: 0 }
-    ]));
+    // Path-level write for the single slot (no compaction, so indices stay stable while typing)
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    const [dateArg, indexArg, fieldsArg] = updateTask.mock.calls[0];
+    expect(dateArg).toBeInstanceOf(Date);
+    expect(dateArg.getDate()).toBe(22);
+    expect(dateArg.getMonth()).toBe(5);
+    expect(dateArg.getFullYear()).toBe(2026);
+    expect(indexArg).toBe(0);
+    expect(fieldsArg).toEqual(expect.objectContaining({ text: "Incomplete Task updated", checkIndex: 0 }));
+    expect(fieldsArg).not.toHaveProperty('originalIndex');
+
+    // The whole-array (compacting) write must not be used for text edits
+    expect(updateDateTasks).not.toHaveBeenCalled();
+
+    // Edited text is reflected locally
+    expect(screen.getByTestId('task-Incomplete Task updated')).toBeInTheDocument();
   });
   it('calls updateDateTasks correctly when a task is moved to another date', async () => {
     vi.useFakeTimers();

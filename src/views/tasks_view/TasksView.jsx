@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
-import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks, ensureDateKeyExists, compactDateTasks, subscribeToGroups, moveDailyTaskToGlobal } from "../../utils/Firebase";
+import { updateDateTasks, updateTask, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks, ensureDateKeyExists, compactDateTasks, subscribeToGroups, moveDailyTaskToGlobal } from "../../utils/Firebase";
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
 
 
@@ -154,12 +154,20 @@ function TasksView() {
   }, []);
 
   const handleTaskUpdate = useCallback((dateKey, originalIndex, updatedTask) => {
+    // Path-level update of just this slot (like the daily planner does). Writing the whole array
+    // would compact it and shift indices, which remounts the row being edited and drops the caret.
+    const { originalIndex: _ignored, ...taskFields } = updatedTask;
+
     setDateGroups(prev => {
       const currentDateTasks = prev[dateKey] ? [...prev[dateKey]] : [];
-      currentDateTasks[originalIndex] = updatedTask;
-      updateDateTasks(dateKey, currentDateTasks);
+      currentDateTasks[originalIndex] = taskFields;
       return { ...prev, [dateKey]: currentDateTasks };
     });
+
+    const dateObj = parseDateKey(dateKey);
+    if (dateObj) {
+      updateTask(dateObj, originalIndex, taskFields);
+    }
   }, []);
 
   const handleMoveToDate = useCallback((task, index, targetDate, sourceDate) => {
