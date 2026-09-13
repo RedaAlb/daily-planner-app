@@ -8,6 +8,7 @@ import DragHandleIcon from '@mui/icons-material/DragHandle';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import FolderIcon from '@mui/icons-material/Folder';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -168,6 +169,19 @@ function DailyTaskItem(props) {
     setDatePickerOpen(true);
   };
 
+  // Only offered when the parent provides onRemoveDate (Tasks view). The task moves to Global Tasks,
+  // keeping its group if it has one, otherwise landing in "Unassigned".
+  const handleRemoveDate = () => {
+    handleMenuClose();
+    setIsFocused(false);
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
+    if (props.onRemoveDate) {
+      props.onRemoveDate(task, props.index, itemDate);
+    }
+  };
+
   const [assignerAnchorEl, setAssignerAnchorEl] = useState(null);
 
   const handleOpenAssignGroup = () => {
@@ -312,6 +326,12 @@ function DailyTaskItem(props) {
           <ListItemIcon><FolderIcon fontSize="small" /></ListItemIcon>
           <ListItemText>Assign group</ListItemText>
         </MenuItem>
+        {props.onRemoveDate && (
+          <MenuItem onClick={handleRemoveDate}>
+            <ListItemIcon><EventBusyIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>Remove date</ListItemText>
+          </MenuItem>
+        )}
       </Menu>
 
       <GroupAssigner

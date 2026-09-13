@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
 
 import "./tasks-view.css";
-import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks, ensureDateKeyExists, compactDateTasks, subscribeToGroups } from "../../utils/Firebase";
+import { updateDateTasks, getDbDateKey, normalizeFirebaseArray, subscribeToAllTasks, ensureDateKeyExists, compactDateTasks, subscribeToGroups, moveDailyTaskToGlobal } from "../../utils/Firebase";
 import { NUM_TASK_ITEMS, DEFAULT_HORI_GAP, MAIN_COLOUR } from "../../utils/constants";
 
 
@@ -31,6 +31,7 @@ const TaskDateGroup = memo(function TaskDateGroup({
   handleTaskUpdate,
   handleMoveToDate,
   handleAssignGroup,
+  handleRemoveDate,
   onDateHeaderClick
 }) {
   const dateObj = parseDateKey(dateKey);
@@ -92,6 +93,7 @@ const TaskDateGroup = memo(function TaskDateGroup({
                         onTaskUpdate={(index, updatedTask) => handleTaskUpdate(dateKey, index, updatedTask)}
                         onMoveToDate={handleMoveToDate}
                         onAssignGroup={handleAssignGroup}
+                        onRemoveDate={handleRemoveDate}
                       />
                     )}
                   </Draggable>
@@ -218,6 +220,24 @@ function TasksView() {
         ...prev,
         [sourceDateKey]: sourceTasks
       };
+    });
+  }, []);
+
+  const handleRemoveDate = useCallback((task, index, sourceDate) => {
+    // Move the task to Global Tasks (under its group, or "Unassigned" if it has none) and clear the daily slot
+    const sourceDateKey = getDbDateKey(sourceDate);
+    const { originalIndex, ...taskData } = task;
+
+    setDateGroups(prev => {
+      const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
+      sourceTasks[index] = { checkIndex: 0, text: "" };
+      return { ...prev, [sourceDateKey]: sourceTasks };
+    });
+
+    moveDailyTaskToGlobal(sourceDateKey, index, {
+      text: taskData.text,
+      checkIndex: taskData.checkIndex ?? 0,
+      groupId: taskData.groupId || null
     });
   }, []);
 
@@ -354,6 +374,7 @@ function TasksView() {
               handleTaskUpdate={handleTaskUpdate}
               handleMoveToDate={handleMoveToDate}
               handleAssignGroup={handleAssignGroup}
+              handleRemoveDate={handleRemoveDate}
               onDateHeaderClick={handleDateHeaderClick}
             />
           ))}

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import TasksView from './TasksView';
-import { updateDateTasks, subscribeToAllTasks } from '../../utils/Firebase';
+import { updateDateTasks, subscribeToAllTasks, moveDailyTaskToGlobal } from '../../utils/Firebase';
 import { BrowserRouter } from 'react-router-dom';
 
 vi.mock('../../utils/Firebase', () => ({
@@ -13,6 +13,7 @@ vi.mock('../../utils/Firebase', () => ({
     return () => {};
   }),
   ensureDateKeyExists: vi.fn(),
+  moveDailyTaskToGlobal: vi.fn(() => Promise.resolve('new-global-id')),
   normalizeFirebaseArray: vi.fn((data) => {
     if (Array.isArray(data)) return data;
     if (data && typeof data === 'object') {
@@ -53,7 +54,7 @@ vi.mock('react-beautiful-dnd', () => ({
 // Mock DailyTaskItem
 vi.mock('../dailyplanner_view/DailyTaskItem', () => ({
   __esModule: true,
-  default: ({ task, onMoveToDate, onTaskUpdate, onAssignGroup, date }) => (
+  default: ({ task, onMoveToDate, onTaskUpdate, onAssignGroup, onRemoveDate, date }) => (
     <div data-testid={`task-${task.text}`}>
       <span>{task.text}</span>
       <button 
@@ -73,6 +74,12 @@ vi.mock('../dailyplanner_view/DailyTaskItem', () => ({
         onClick={() => onAssignGroup(task, 0, 'group-123', date)}
       >
         Assign
+      </button>
+      <button 
+        data-testid={`remove-date-btn-${task.text}`} 
+        onClick={() => onRemoveDate(task, 0, date)}
+      >
+        Remove date
       </button>
     </div>
   )
@@ -209,5 +216,54 @@ describe('TasksView', () => {
       { text: "", checkIndex: 0 }
     ]));
     vi.useRealTimers();
+  });
+
+  it('moves the task to global tasks and hides it when the date is removed', async () => {
+    await act(async () => {
+      customRender(<TasksView />);
+    });
+
+    expect(screen.getByText("Incomplete Task")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('remove-date-btn-Incomplete Task'));
+    });
+
+    // Ungrouped task goes to global tasks with groupId null (lands in "Unassigned")
+    expect(moveDailyTaskToGlobal).toHaveBeenCalledWith("22-6-2026", 0, {
+      text: "Incomplete Task",
+      checkIndex: 0,
+      groupId: null
+    });
+
+    // Task is removed from the list immediately (optimistic update)
+    await waitFor(() => {
+      expect(screen.queryByText("Incomplete Task")).not.toBeInTheDocument();
+    });
+  });
+
+  it('preserves the group when removing the date from a grouped task', async () => {
+    subscribeToAllTasks.mockImplementation((callback) => {
+      callback({
+        "22-6-2026": [
+          { text: "Grouped Task", checkIndex: 0, groupId: 'group-123' },
+        ]
+      });
+      return () => {};
+    });
+
+    await act(async () => {
+      customRender(<TasksView />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('remove-date-btn-Grouped Task'));
+    });
+
+    expect(moveDailyTaskToGlobal).toHaveBeenCalledWith("22-6-2026", 0, {
+      text: "Grouped Task",
+      checkIndex: 0,
+      groupId: 'group-123'
+    });
   });
 });

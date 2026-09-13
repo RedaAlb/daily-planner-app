@@ -79,4 +79,30 @@ describe('DailyTaskItem', () => {
     // The task text should still be rendered (not cleared)
     expect(screen.getByRole('textbox')).toHaveValue('Test Task');
   });
+
+  describe('Remove date', () => {
+    it('is not shown when onRemoveDate is not provided (daily planner view)', () => {
+      render(<DailyTaskItem {...defaultProps} />);
+      fireEvent.click(screen.getByTitle('More actions'));
+      expect(screen.queryByText('Remove date')).not.toBeInTheDocument();
+    });
+
+    it('is shown for an ungrouped task when onRemoveDate is provided', () => {
+      render(<DailyTaskItem {...defaultProps} onRemoveDate={vi.fn()} />);
+      fireEvent.click(screen.getByTitle('More actions'));
+      expect(screen.getByText('Remove date')).toBeInTheDocument();
+    });
+
+    it('calls onRemoveDate with the task, index and date', () => {
+      const onRemoveDate = vi.fn();
+      const task = { text: 'Grouped Task', checkIndex: 0, groupId: 'group-123' };
+      render(<DailyTaskItem {...defaultProps} task={task} index={2} onRemoveDate={onRemoveDate} />);
+
+      fireEvent.click(screen.getByTitle('More actions'));
+      fireEvent.click(screen.getByText('Remove date'));
+
+      expect(onRemoveDate).toHaveBeenCalledWith(task, 2, defaultProps.date);
+      expect(updateTask).not.toHaveBeenCalled();
+    });
+  });
 });
