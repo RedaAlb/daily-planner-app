@@ -364,6 +364,7 @@ function DailyTaskItem(props) {
       <GroupAssigner
         anchorEl={assignerAnchorEl}
         onClose={handleCloseGroupAssigner}
+        currentGroupId={task?.groupId || null}
         onAssignGroup={handleAssignGroup}
       />
     </div>
