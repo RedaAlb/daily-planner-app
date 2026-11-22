@@ -191,10 +191,11 @@ describe('TasksView', () => {
       { text: "", checkIndex: 0 }
     ]));
     
-    // It should update the target date (25-6-2026) to include the task
-    expect(updateDateTasks).toHaveBeenCalledWith("25-6-2026", expect.arrayContaining([
-      expect.objectContaining({ text: "Incomplete Task", checkIndex: 0 })
-    ]));
+    // It should update the target date (25-6-2026) to include the task without temporary originalIndex
+    const targetCall = updateDateTasks.mock.calls.find(call => call[0] === "25-6-2026");
+    expect(targetCall).toBeTruthy();
+    expect(targetCall[1][0]).toEqual(expect.objectContaining({ text: "Incomplete Task", checkIndex: 0 }));
+    expect(targetCall[1][0]).not.toHaveProperty('originalIndex');
     vi.useRealTimers();
   });
 
@@ -219,13 +220,14 @@ describe('TasksView', () => {
       vi.runAllTimers(); 
     });
 
-    // Should update the daily planner in-place (adding groupId), NOT clear it
+    // Should update the daily planner in-place (adding groupId), NOT clear it, and strip originalIndex
     expect(updateDateTasks).toHaveBeenCalledWith("22-6-2026", expect.arrayContaining([
       expect.objectContaining({ text: "Incomplete Task", checkIndex: 0, groupId: 'group-123' }),
       { text: "Completed Task", checkIndex: 1 },
       { text: "Migrated Task", checkIndex: 2 },
       { text: "", checkIndex: 0 }
     ]));
+    expect(updateDateTasks.mock.calls[0][1][0]).not.toHaveProperty('originalIndex');
     vi.useRealTimers();
   });
 

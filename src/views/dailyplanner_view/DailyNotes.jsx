@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 
 import dailyplannerContext from "./context/dailyplanner-context";
 import useDebounce from "../../hooks/useDebounce";
@@ -13,29 +13,40 @@ function DailyNotes(props) {
   const { state, dispatch } = useContext(dailyplannerContext);
 
   const [notes, setNotes] = useState(state.notes);
+  const isDirtyRef = useRef(false);
 
-
-  const debouncedUpdateNotes = useDebounce((val) => {
-    updateNotes(state.currentDate, val);
-    initDate(state.currentDate, state.time, dispatch);
+  const debouncedUpdateNotes = useDebounce((targetDate, targetTime, val) => {
+    isDirtyRef.current = false;
+    updateNotes(targetDate, val);
+    if (val.trim() !== "") {
+      initDate(targetDate, targetTime, dispatch);
+    }
   }, 300);
 
   const onTextchange = (event) => {
     const textboxValue = event.target.value;
 
+    isDirtyRef.current = true;
     setNotes(textboxValue);
-    debouncedUpdateNotes(textboxValue);
+    debouncedUpdateNotes(state.currentDate, state.time, textboxValue);
   }
 
-  const handleBlur = (e) => {
-    updateNotes(state.currentDate, e.target.value);
-    initDate(state.currentDate, state.time, dispatch);
+  const handleBlur = () => {
+    if (isDirtyRef.current) {
+      debouncedUpdateNotes.flush();
+    }
   };
 
+  useEffect(() => {
+    return () => {
+      debouncedUpdateNotes.flush();
+    };
+  }, [state.currentDate, debouncedUpdateNotes]);
 
   useEffect(() => {
+    isDirtyRef.current = false;
     setNotes(state.notes);
-  }, [state])
+  }, [state.notes, state.currentDate])
 
 
   return (

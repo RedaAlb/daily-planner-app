@@ -6,7 +6,7 @@ import { checkConnectionStatus } from "../utils/Firebase";
 
 
 function LostConnection(props) {
-  const [offline, setOffline] = useState(true);
+  const [offline, setOffline] = useState(false);
 
 
   useEffect(() => {

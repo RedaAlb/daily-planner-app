@@ -23,6 +23,7 @@ function App() {
               <Route path="/" element={<DailyPlannerView />} />
               <Route path={TASKS_VIEW_PATH} element={<TasksView />} />
               <Route path={GLOBAL_TASKS_VIEW_PATH} element={<GlobalTasksView />} />
+              {/* Gym Weights is no longer used (removed from sidebar navigation). */}
               <Route path={GYM_WEIGHTS_VIEW_PATH} element={<GymWeightsView />} />
               <Route path={SETTINGS_VIEW_PATH} element={<SettingsView />} />
               <Route path="*" element={<h1>No page found</h1>} />

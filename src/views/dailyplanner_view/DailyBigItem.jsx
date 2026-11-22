@@ -1,4 +1,4 @@
-import React, { memo, useContext, useEffect, useState } from "react";
+import React, { memo, useContext, useEffect, useRef, useState } from "react";
 
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -24,37 +24,52 @@ function DailyBigItem(props) {
   const { state, dispatch } = useContext(dailyplannerContext);
 
   const [dailyBig, setDailyBig] = useState(props.dailyBig);
+  const isDirtyRef = useRef(false);
 
 
   const onTickClick = (checkIndex) => {
+    debouncedUpdateDailyBig.flush();
     const newDailyBig = { ...dailyBig, checkIndex: checkIndex };
 
     setDailyBig(newDailyBig);
     updateDailyBig(state.currentDate, props.index, newDailyBig);
+    if (checkIndex !== 0 || (newDailyBig.text && newDailyBig.text.trim() !== "")) {
+      initDate(state.currentDate, state.time, dispatch);
+    }
   }
 
 
-  const debouncedUpdateDailyBig = useDebounce((newDailyBig) => {
-    updateDailyBig(state.currentDate, props.index, newDailyBig);
-    initDate(state.currentDate, state.time, dispatch);
+  const debouncedUpdateDailyBig = useDebounce((targetDate, targetTime, newDailyBig) => {
+    isDirtyRef.current = false;
+    updateDailyBig(targetDate, props.index, newDailyBig);
+    if (newDailyBig.text && newDailyBig.text.trim() !== "") {
+      initDate(targetDate, targetTime, dispatch);
+    }
   }, 300);
 
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
     const newDailyBig = { ...dailyBig, text: textboxValue }
 
+    isDirtyRef.current = true;
     setDailyBig(newDailyBig);
-    debouncedUpdateDailyBig(newDailyBig);
+    debouncedUpdateDailyBig(state.currentDate, state.time, newDailyBig);
   }
 
-  const handleBlur = (e) => {
-    const currentDailyBig = { ...dailyBig, text: e.target.value };
-    updateDailyBig(state.currentDate, props.index, currentDailyBig);
-    initDate(state.currentDate, state.time, dispatch);
+  const handleBlur = () => {
+    if (isDirtyRef.current) {
+      debouncedUpdateDailyBig.flush();
+    }
   };
 
+  useEffect(() => {
+    return () => {
+      debouncedUpdateDailyBig.flush();
+    };
+  }, [state.currentDate, debouncedUpdateDailyBig]);
 
   useEffect(() => {
+    isDirtyRef.current = false;
     setDailyBig(props.dailyBig);
   }, [props.dailyBig])
 

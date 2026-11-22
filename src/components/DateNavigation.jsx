@@ -43,11 +43,16 @@ function DateNavigation(props) {
 
 
   const onDateChange = (date) => {
+    if (!date || isNaN(date.getTime())) return;
+
+    const isSameDay = getDbDateKey(date) === getDbDateKey(state.currentDate);
     dispatch({ type: SET_DATE, payload: date });
 
-    // Only save date time if date is already populated, i.e. if time created already exists.
-    if (state.time !== "") {
-      updateTime(currentDate, `${date.getHours()}:${date.getMinutes()}`);
+    // Only update saved timestamp when editing the time on the same already-populated date.
+    if (isSameDay && state.time !== "") {
+      const hh = String(date.getHours()).padStart(2, "0");
+      const mm = String(date.getMinutes()).padStart(2, "0");
+      updateTime(state.currentDate, `${hh}:${mm}`);
     }
   }
 
@@ -80,18 +85,20 @@ function DateNavigation(props) {
   }
 
 
-  const onDeleteDateConfirm = () => {
-    deleteDateData(state.currentDate);
-    
+  const onDeleteDateConfirm = async () => {
+    setDeleteDateDialog(false);
+    await deleteDateData(state.currentDate);
+
     dispatch({ type: SET_TIME, payload: undefined });
     dispatch({ type: SET_DAILYBIGS, payload: undefined });
     dispatch({ type: SET_TASKS, payload: undefined });
     dispatch({ type: SET_ROUTINES, payload: undefined });
     dispatch({ type: SET_NOTES, payload: undefined });
-    
-    loadAllDateKeys().then((dateKeys) => {
+
+    if (typeof loadAllDateKeys === "function") {
+      const dateKeys = await loadAllDateKeys();
       dispatch({ type: SET_DATE_KEYS, payload: dateKeys });
-    });
+    }
   }
 
 

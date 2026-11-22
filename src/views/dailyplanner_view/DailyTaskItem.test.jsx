@@ -6,7 +6,7 @@ import { updateTask } from '../../utils/Firebase';
 
 vi.mock('../../utils/Firebase', () => ({
   updateTask: vi.fn(),
-  getDbDateKey: vi.fn(),
+  getDbDateKey: vi.fn((date) => date ? `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}` : ''),
   initDate: vi.fn(),
   ensureDateKeyExists: vi.fn()
 }));
@@ -104,5 +104,44 @@ describe('DailyTaskItem', () => {
       expect(onRemoveDate).toHaveBeenCalledWith(task, 2, defaultProps.date);
       expect(updateTask).not.toHaveBeenCalled();
     });
+  });
+
+  it('does not write to Firebase or initialize date on blur when empty and unchanged', () => {
+    const emptyProps = {
+      ...defaultProps,
+      task: { text: '', checkIndex: 0 }
+    };
+    render(<DailyTaskItem {...emptyProps} />);
+
+    const textbox = screen.getByRole('textbox');
+    fireEvent.focus(textbox);
+    fireEvent.blur(textbox);
+
+    expect(updateTask).not.toHaveBeenCalled();
+  });
+
+  it('flushes pending text edit to the original date when date changes within debounce window', () => {
+    vi.useFakeTimers();
+    const date1 = new Date(2026, 7, 5);
+    const date2 = new Date(2026, 7, 6);
+
+    const { rerender } = render(
+      <DailyTaskItem {...defaultProps} date={date1} task={{ text: 'Day 1', checkIndex: 0 }} />
+    );
+
+    const textbox = screen.getByRole('textbox');
+    fireEvent.change(textbox, { target: { value: 'Day 1 edited' } });
+
+    // Switch to Day 2 before 300ms debounce fires
+    rerender(
+      <DailyTaskItem {...defaultProps} date={date2} task={{ text: 'Day 2', checkIndex: 0 }} />
+    );
+
+    vi.advanceTimersByTime(350);
+
+    // Must write to date1 only, never overwriting date2
+    expect(updateTask).toHaveBeenCalledTimes(1);
+    expect(updateTask).toHaveBeenCalledWith(date1, 0, { text: 'Day 1 edited' });
+    vi.useRealTimers();
   });
 });

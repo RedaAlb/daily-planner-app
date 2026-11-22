@@ -2,7 +2,7 @@ import { renderHook, act } from '@testing-library/react';
 import { vi } from 'vitest';
 import useGlobalTasks from './useGlobalTasks';
 import * as firebaseDatabase from 'firebase/database';
-import { subscribeToAllGroupedTasks, updateTask as updateDailyTask, moveDailyTaskToGlobal } from '../utils/Firebase';
+import { subscribeToAllGroupedTasks, updateTask as updateDailyTask, moveDailyTaskToGlobal, moveDailyTasksToGlobal } from '../utils/Firebase';
 
 // Mock firebase database functions
 vi.mock('firebase/database', () => {
@@ -20,6 +20,7 @@ vi.mock('../utils/Firebase', () => ({
   appDb: {},
   updateTask: vi.fn().mockResolvedValue(),
   moveDailyTaskToGlobal: vi.fn().mockResolvedValue(),
+  moveDailyTasksToGlobal: vi.fn().mockResolvedValue([]),
   subscribeToAllGroupedTasks: vi.fn(),
   GLOBAL_TASKS_PATH: 'global_tasks',
   GLOBAL_TASK_GROUPS_PATH: 'global_task_groups'
@@ -254,5 +255,46 @@ describe('useGlobalTasks hook', () => {
       0,
       { text: 'Daily Task', checkIndex: 0, groupId: 'group-1' }
     );
+  });
+
+  it('deleteGroup batches multiple daily tasks from the same dateKey into one moveDailyTasksToGlobal call', async () => {
+    subscribeGroupedMock.mockImplementation((callback) => {
+      callback([
+        {
+          id: '5-8-2026:0',
+          text: 'Task A',
+          checked: false,
+          groupId: 'group-1',
+          source: 'daily',
+          dateKey: '5-8-2026',
+          dateIndex: 0,
+          checkIndex: 0
+        },
+        {
+          id: '5-8-2026:2',
+          text: 'Task B',
+          checked: true,
+          groupId: 'group-1',
+          source: 'daily',
+          dateKey: '5-8-2026',
+          dateIndex: 2,
+          checkIndex: 1
+        }
+      ]);
+      return () => {};
+    });
+
+    const { result } = renderHook(() => useGlobalTasks());
+
+    await act(async () => {
+      await result.current.deleteGroup('group-1');
+    });
+
+    expect(moveDailyTasksToGlobal).toHaveBeenCalledTimes(1);
+    expect(moveDailyTasksToGlobal).toHaveBeenCalledWith('5-8-2026', [
+      { dateIndex: 0, text: 'Task A', checkIndex: 0, groupId: null },
+      { dateIndex: 2, text: 'Task B', checkIndex: 1, groupId: null }
+    ]);
+    expect(firebaseDatabase.remove).toHaveBeenCalledWith({ path: 'global_task_groups/group-1' });
   });
 });

@@ -27,11 +27,15 @@ function SettingsItem(props) {
     // If its a setting item that stores a value, e.g. a toggle, load the saved value.
     if (props.saveKey) {
       const loadSavedValue = () => {
-        const value = localStorage.getItem(props.saveKey);
+        try {
+          const value = localStorage.getItem(props.saveKey);
 
-        if (value !== null) {
-          const valueBool = JSON.parse(value);
-          setToggle(valueBool);
+          if (value !== null) {
+            const valueBool = JSON.parse(value);
+            setToggle(Boolean(valueBool));
+          }
+        } catch (err) {
+          console.warn(`Failed to parse setting "${props.saveKey}" from localStorage:`, err);
         }
       }
 

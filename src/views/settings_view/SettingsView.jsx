@@ -7,7 +7,7 @@ import FolderDeleteIcon from '@mui/icons-material/FolderDelete';
 import WarningIcon from '@mui/icons-material/Warning';
 
 import { deleteDb, exportDb, importDb } from "../../utils/Firebase";
-import { DATE_SAVE_LOCATION, EXPORTS_DIR_NAME } from "../../utils/constants";
+import { DATE_SAVE_LOCATION } from "../../utils/constants";
 
 import ConfirmDialog from '../../components/ConfirmDialog';
 import SnackbarComp from '../../components/SnackbarComp';
@@ -21,24 +21,37 @@ function SettingsView(props) {
   const [exportSnackbar, setExportSnackbar] = useState(false);
   const [importSnackbar, setImportSnackbar] = useState(false);
   const [delDataSnackbar, setDelDataSnackbar] = useState(false);
+  const [errorSnackbar, setErrorSnackbar] = useState({ open: false, text: "" });
+  const [importDataDiaOpen, setImportDataDiaOpen] = useState(false);
   const [deleteAllDataDiaOpen, setDeleteAllDataDiaOpen] = useState(false);  // Dia: Dialog
 
+  const showError = (text) => {
+    setErrorSnackbar({ open: true, text });
+  };
 
   const onExportClick = () => {
-    exportDb(setExportSnackbar);
+    exportDb(setExportSnackbar, showError);
   }
 
 
   const onImportClick = () => {
-    importDb(setImportSnackbar);
+    setImportDataDiaOpen(true);
+  }
+
+  const onImportConfirmed = () => {
+    setImportDataDiaOpen(false);
+    importDb(setImportSnackbar, showError);
   }
 
 
-  const onDelAllDataConfirmed = () => {
-    deleteDb();
-
+  const onDelAllDataConfirmed = async () => {
     setDeleteAllDataDiaOpen(false);
-    setDelDataSnackbar(true);
+    const deleted = await deleteDb();
+    if (deleted) {
+      setDelDataSnackbar(true);
+    } else {
+      showError("Delete failed. Make sure you are signed in and online.");
+    }
   }
 
 
@@ -55,6 +68,15 @@ function SettingsView(props) {
       <SettingsItem text="Delete all data" icon={<FolderDeleteIcon />} onClick={() => setDeleteAllDataDiaOpen(true)} />
 
       <ConfirmDialog
+        dialogOpen={importDataDiaOpen}
+        setDialogOpen={setImportDataDiaOpen}
+        diaTitle="Import data?"
+        diaText="Importing a backup will overwrite all existing data in the app."
+        diaIcon={<WarningIcon sx={{ color: "#ed6c02" }} />}
+        onConfirmed={onImportConfirmed}
+      />
+
+      <ConfirmDialog
         dialogOpen={deleteAllDataDiaOpen}
         setDialogOpen={setDeleteAllDataDiaOpen}
         diaTitle="Delete ALL data?"
@@ -63,9 +85,15 @@ function SettingsView(props) {
         onConfirmed={onDelAllDataConfirmed}
       />
 
-      <SnackbarComp text={`Exported successfully to /Documents/${EXPORTS_DIR_NAME}`} open={exportSnackbar} setOpen={setExportSnackbar} />
+      <SnackbarComp text="Exported database successfully" open={exportSnackbar} setOpen={setExportSnackbar} />
       <SnackbarComp text="Imported successfully" open={importSnackbar} setOpen={setImportSnackbar} />
       <SnackbarComp text="All data deleted successfully" open={delDataSnackbar} setOpen={setDelDataSnackbar} />
+      <SnackbarComp
+        text={errorSnackbar.text}
+        severity="error"
+        open={errorSnackbar.open}
+        setOpen={(open) => setErrorSnackbar((prev) => ({ ...prev, open }))}
+      />
     </>
   )
 }

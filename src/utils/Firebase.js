@@ -258,9 +258,12 @@ export const compactDateTasks = (tasks) => {
 export const updateDateTasks = (dateKey, tasks) => {
   const sanitizedTasks = compactDateTasks(tasks);
 
-  return db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), sanitizedTasks).catch((err) => {
-    console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
-  });
+  return db.set(db.ref(appDb, `${dateKey}/${TASKS_PATH}/`), sanitizedTasks)
+    .then(() => true)
+    .catch((err) => {
+      console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
+      return false;
+    });
 };
 
 export const ensureDateKeyExists = async (dateKey) => {
@@ -375,11 +378,48 @@ export const moveDailyTaskToGlobal = async (dateKey, taskIndex, task) => {
   // Clear the daily planner slot
   const dateTasks = await loadDateTasks(dateKey);
   if (dateTasks && dateTasks[taskIndex]) {
-    dateTasks[taskIndex] = { checkIndex: 0, text: "" };
+    dateTasks[taskIndex] = { checkIndex: 0, checked: false, text: "" };
     await updateDateTasks(dateKey, dateTasks);
   }
 
   return newTaskId;
+};
+
+// Moves multiple tasks from the same dateKey to global_tasks in one batch so compacting
+// the date's task array once doesn't shift indices for subsequent tasks on the same date.
+export const moveDailyTasksToGlobal = async (dateKey, tasksToMove) => {
+  if (!dateKey || !Array.isArray(tasksToMove) || tasksToMove.length === 0) return [];
+
+  const createdIds = [];
+  const globalUpdates = {};
+  const now = Date.now();
+
+  tasksToMove.forEach((item, idx) => {
+    const newTaskId = db.push(db.ref(appDb, GLOBAL_TASKS_PATH)).key;
+    createdIds.push(newTaskId);
+    globalUpdates[`${GLOBAL_TASKS_PATH}/${newTaskId}`] = {
+      id: newTaskId,
+      text: item.text || "",
+      checked: item.checkIndex === 1,
+      order: 0,
+      groupId: item.groupId || null,
+      createdAt: now + idx
+    };
+  });
+
+  await db.update(db.ref(appDb), globalUpdates);
+
+  const dateTasks = await loadDateTasks(dateKey);
+  if (dateTasks) {
+    tasksToMove.forEach((item) => {
+      if (item.dateIndex !== undefined && item.dateIndex !== null && dateTasks[item.dateIndex]) {
+        dateTasks[item.dateIndex] = { checkIndex: 0, checked: false, text: "" };
+      }
+    });
+    await updateDateTasks(dateKey, dateTasks);
+  }
+
+  return createdIds;
 };
 
 // Helper: load just the tasks array for a dateKey
@@ -521,22 +561,31 @@ export const updateNotes = (date, newNotes) => {
 }
 
 
+const initializingDates = new Set();
+
 export const initDate = async (date, time, dispatch) => {
   // Save time if not already saved for that date, and anything else that needs to happen only once when date is first used.
   // This is called on routine, daily big, task, or notes change.
   const dateKey = getDbDateKey(date);
 
-  if (time === "") {
+  if (time === "" && !initializingDates.has(dateKey)) {
+    initializingDates.add(dateKey);
     const newDate = new Date();
-    const newTime = `${newDate.getHours()}:${newDate.getMinutes()}`;
+    const hh = String(newDate.getHours()).padStart(2, "0");
+    const mm = String(newDate.getMinutes()).padStart(2, "0");
+    const newTime = `${hh}:${mm}`;
 
     try {
       await db.set(db.ref(appDb, `${dateKey}/${TIME_PATH}/`), newTime);
-      dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
+      if (dispatch) {
+        dispatch({ type: SET_TIME, payload: newTime });  // Update locally to make time visible.
+      }
 
       // Add the dateKey to the db, this is used to add dots to the populated dates in the date picker.
       await db.set(db.ref(appDb, `${DATE_KEYS_PATH}/${dateKey}`), true);
-      dispatch({ type: ADD_DATE_KEY, payload: dateKey });
+      if (dispatch) {
+        dispatch({ type: ADD_DATE_KEY, payload: dateKey });
+      }
 
       // Save location if location setting is turned on.
       const value = localStorage.getItem(DATE_SAVE_LOCATION);
@@ -558,6 +607,8 @@ export const initDate = async (date, time, dispatch) => {
       }
     } catch (err) {
       console.warn("Firebase init date write restricted (demo mode or offline):", err?.message || err);
+    } finally {
+      initializingDates.delete(dateKey);
     }
   }
 }
@@ -572,32 +623,34 @@ export const updateTime = (date, newTime) => {
 }
 
 
-export const exportDb = async (setExportSnackbar) => {
+export const exportDb = async (setExportSnackbar, onError) => {
   const dbData = await db.get(db.ref(appDb, "/")).then((snapshot) => {
     if (snapshot.exists()) {
-      const dbData = snapshot.val();
-
-      return dbData;
+      return snapshot.val();
     } else {
-      return {}
+      return {};
     }
   }).catch((error) => {
     console.warn("Firebase export failed (demo mode or offline):", error?.message || error);
     return null;
-  })
+  });
 
-  if (!dbData) return;
+  if (!dbData) {
+    if (onError) onError("Export failed. Make sure you are signed in and online.");
+    return false;
+  }
 
   const dbDataJsonString = JSON.stringify(dbData, null, 2);
 
   const dt = new Date();
   const nowDateTimeString =
-    `${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear()}_${dt.getHours()}-${dt.getMinutes()}-${dt.getSeconds()}`
+    `${dt.getDate()}-${dt.getMonth() + 1}-${dt.getFullYear()}_${dt.getHours()}-${dt.getMinutes()}-${dt.getSeconds()}`;
 
   const fileName = `db_${nowDateTimeString}.json`;
 
   await saveDataToFile(fileName, dbDataJsonString);
-  setExportSnackbar(true);
+  if (setExportSnackbar) setExportSnackbar(true);
+  return true;
 }
 
 
@@ -615,34 +668,58 @@ export const saveDataToFile = async (fileName, dataToSave) => {
 }
 
 
-export const importDb = (setImportSnackbar) => {
+export const importDb = (setImportSnackbar, onError) => {
   const input = document.createElement("input");
   input.type = "file";
+  input.accept = "application/json,.json";
 
   input.onchange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     const reader = new FileReader();
-    reader.readAsText(file, "UTF-8");
+    reader.onload = async (readerEvent) => {
+      const content = readerEvent.target?.result;
+      let json;
+      try {
+        json = JSON.parse(content);
+      } catch (parseErr) {
+        console.warn("Invalid JSON file for import:", parseErr);
+        if (onError) onError("Import failed: selected file is not valid JSON.");
+        return;
+      }
 
-    reader.onload = (readerEvent) => {
-      const content = readerEvent.target.result;
-      const json = JSON.parse(content)
-      db.set(db.ref(appDb, "/"), json).catch((err) => {
+      if (!json || typeof json !== "object" || Array.isArray(json)) {
+        if (onError) onError("Import failed: JSON root must be an object.");
+        return;
+      }
+
+      try {
+        await db.set(db.ref(appDb, "/"), json);
+        if (setImportSnackbar) setImportSnackbar(true);
+      } catch (err) {
         console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
-      });
-      setImportSnackbar(true);
-    }
-  }
+        if (onError) onError("Import failed. Make sure you are signed in and online.");
+      }
+    };
+    reader.onerror = () => {
+      if (onError) onError("Import failed: could not read the selected file.");
+    };
+    reader.readAsText(file, "UTF-8");
+  };
 
   input.click();
 }
 
 
-export const deleteDb = () => {
-  db.set(db.ref(appDb, "/"), null).catch((err) => {
+export const deleteDb = async () => {
+  try {
+    await db.set(db.ref(appDb, "/"), null);
+    return true;
+  } catch (err) {
     console.warn("Firebase write restricted (demo mode or offline):", err?.message || err);
-  });
+    return false;
+  }
 }
 
 

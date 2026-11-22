@@ -3,11 +3,14 @@ import * as db from 'firebase/database';
 import {
   assignGroupToDailyTask,
   moveDailyTaskToGlobal,
+  moveDailyTasksToGlobal,
   moveGlobalTaskToDailyPlanner,
   createGlobalTaskGroup,
   ensureDateKeyExists,
   updateTask,
-  parseDateKeys
+  parseDateKeys,
+  initDate,
+  deleteDb
 } from './Firebase';
 
 vi.mock('firebase/app', () => ({
@@ -205,5 +208,70 @@ describe('Firebase integration helpers', () => {
     expect(parseDateKeys(legacyObj).sort()).toEqual(["1-2-2026", "3-4-2026"].sort());
     
     expect(parseDateKeys(null)).toEqual([]);
+  });
+
+  it('moveDailyTasksToGlobal batches multiple tasks from the same date without index shifting', async () => {
+    let keyCounter = 0;
+    db.push.mockImplementation(() => ({ key: `pushed-${++keyCounter}` }));
+    db.get.mockResolvedValueOnce({
+      exists: () => true,
+      val: () => ({
+        tasks: [
+          { text: '', checkIndex: 0, checked: false },
+          { text: 'First grouped', checkIndex: 0, checked: false, groupId: 'group-1' },
+          { text: 'Keep me', checkIndex: 0, checked: false },
+          { text: 'Second grouped', checkIndex: 1, checked: true, groupId: 'group-1' }
+        ]
+      })
+    });
+
+    const ids = await moveDailyTasksToGlobal('5-8-2026', [
+      { dateIndex: 1, text: 'First grouped', checkIndex: 0, groupId: null },
+      { dateIndex: 3, text: 'Second grouped', checkIndex: 1, groupId: null }
+    ]);
+
+    expect(ids).toEqual(['pushed-1', 'pushed-2']);
+    expect(db.update).toHaveBeenCalledTimes(1);
+    const globalBatch = db.update.mock.calls[0][1];
+    expect(globalBatch['global_tasks/pushed-1']).toEqual(expect.objectContaining({
+      text: 'First grouped',
+      checked: false,
+      groupId: null
+    }));
+    expect(globalBatch['global_tasks/pushed-2']).toEqual(expect.objectContaining({
+      text: 'Second grouped',
+      checked: true,
+      groupId: null
+    }));
+
+    // Daily tasks should be compacted once, preserving only the unrelated task
+    expect(db.set).toHaveBeenCalledTimes(1);
+    expect(db.set.mock.calls[0][0].path).toBe('5-8-2026/tasks/');
+    expect(db.set.mock.calls[0][1][0]).toEqual(expect.objectContaining({ text: 'Keep me' }));
+    expect(db.set.mock.calls[0][1][1]).toEqual({ checkIndex: 0, checked: false, text: '' });
+  });
+
+  it('initDate zero-pads time and ignores concurrent calls for the same date', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 5, 9, 5, 0));
+    const dispatch = vi.fn();
+
+    await Promise.all([
+      initDate(new Date(2026, 7, 5), '', dispatch),
+      initDate(new Date(2026, 7, 5), '', dispatch)
+    ]);
+
+    const timeWrites = db.set.mock.calls.filter(call => call[0].path === '5-8-2026/time/');
+    expect(timeWrites).toHaveLength(1);
+    expect(timeWrites[0][1]).toBe('09:05');
+    vi.useRealTimers();
+  });
+
+  it('deleteDb returns true on success and false on error', async () => {
+    db.set.mockResolvedValueOnce();
+    expect(await deleteDb()).toBe(true);
+
+    db.set.mockRejectedValueOnce(new Error('Permission denied'));
+    expect(await deleteDb()).toBe(false);
   });
 });
