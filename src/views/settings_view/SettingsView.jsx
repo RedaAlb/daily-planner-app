@@ -5,9 +5,12 @@ import DownloadIcon from '@mui/icons-material/Download';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderDeleteIcon from '@mui/icons-material/FolderDelete';
 import WarningIcon from '@mui/icons-material/Warning';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
 
 import { deleteDb, exportDb, importDb } from "../../utils/Firebase";
 import { DATE_SAVE_LOCATION } from "../../utils/constants";
+import { checkForAppUpdate, getVersionSummary } from "../../utils/appVersion";
 
 import ConfirmDialog from '../../components/ConfirmDialog';
 import SnackbarComp from '../../components/SnackbarComp';
@@ -21,12 +24,19 @@ function SettingsView(props) {
   const [exportSnackbar, setExportSnackbar] = useState(false);
   const [importSnackbar, setImportSnackbar] = useState(false);
   const [delDataSnackbar, setDelDataSnackbar] = useState(false);
-  const [errorSnackbar, setErrorSnackbar] = useState({ open: false, text: "" });
+  const [statusSnackbar, setStatusSnackbar] = useState({ open: false, text: "", severity: "info" });
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
   const [importDataDiaOpen, setImportDataDiaOpen] = useState(false);
   const [deleteAllDataDiaOpen, setDeleteAllDataDiaOpen] = useState(false);  // Dia: Dialog
 
+  const versionSummary = getVersionSummary();
+
+  const showStatus = (text, severity = "info") => {
+    setStatusSnackbar({ open: true, text, severity });
+  };
+
   const showError = (text) => {
-    setErrorSnackbar({ open: true, text });
+    showStatus(text, "error");
   };
 
   const onExportClick = () => {
@@ -54,6 +64,33 @@ function SettingsView(props) {
     }
   }
 
+  const onCopyVersionClick = async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(versionSummary);
+        showStatus("Version copied to clipboard", "success");
+      }
+    } catch {
+      // Clipboard access denied or unsupported
+    }
+  };
+
+  const onCheckUpdateClick = async () => {
+    setCheckingUpdate(true);
+    const result = await checkForAppUpdate();
+    setCheckingUpdate(false);
+
+    if (result === "updated") {
+      showStatus("Update found! Reloading...", "success");
+    } else if (result === "up-to-date") {
+      showStatus("You're on the latest version", "success");
+    } else if (result === "unsupported") {
+      showStatus("No service worker active — refresh to load latest", "info");
+    } else {
+      showError("Could not check for updates. Make sure you're online.");
+    }
+  };
+
 
   return (
     <>
@@ -66,6 +103,21 @@ function SettingsView(props) {
       <SettingsItem text="Export" icon={<SaveIcon />} onClick={onExportClick} />
       <SettingsItem text="Import" icon={<DownloadIcon />} onClick={onImportClick} />
       <SettingsItem text="Delete all data" icon={<FolderDeleteIcon />} onClick={() => setDeleteAllDataDiaOpen(true)} />
+
+      <SettingsTextDivider text="About" />
+      <SettingsItem
+        text="Version"
+        secondaryText={versionSummary}
+        icon={<InfoOutlinedIcon />}
+        onClick={onCopyVersionClick}
+      />
+      <SettingsItem
+        text="Check for update"
+        secondaryText={checkingUpdate ? "Checking..." : "Check for a newer deployed version"}
+        icon={<SystemUpdateAltIcon />}
+        onClick={onCheckUpdateClick}
+        disabled={checkingUpdate}
+      />
 
       <ConfirmDialog
         dialogOpen={importDataDiaOpen}
@@ -89,10 +141,10 @@ function SettingsView(props) {
       <SnackbarComp text="Imported successfully" open={importSnackbar} setOpen={setImportSnackbar} />
       <SnackbarComp text="All data deleted successfully" open={delDataSnackbar} setOpen={setDelDataSnackbar} />
       <SnackbarComp
-        text={errorSnackbar.text}
-        severity="error"
-        open={errorSnackbar.open}
-        setOpen={(open) => setErrorSnackbar((prev) => ({ ...prev, open }))}
+        text={statusSnackbar.text}
+        severity={statusSnackbar.severity}
+        open={statusSnackbar.open}
+        setOpen={(open) => setStatusSnackbar((prev) => ({ ...prev, open }))}
       />
     </>
   )

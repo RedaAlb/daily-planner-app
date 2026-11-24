@@ -1,8 +1,30 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { execSync } from 'child_process';
 import path from 'path';
 import os from 'os';
+
+function getBuildVersionInfo(env) {
+  const runGit = (cmd) => {
+    try {
+      return execSync(cmd, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+    } catch {
+      return '';
+    }
+  };
+
+  const rawSha = env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || runGit('git rev-parse HEAD');
+  const commitSha = rawSha ? rawSha.slice(0, 7) : 'unknown';
+  const branch =
+    env.VERCEL_GIT_COMMIT_REF ||
+    process.env.VERCEL_GIT_COMMIT_REF ||
+    runGit('git rev-parse --abbrev-ref HEAD') ||
+    'unknown';
+  const buildTime = new Date().toISOString();
+
+  return { commitSha, branch, buildTime };
+}
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -12,6 +34,7 @@ export default defineConfig(({ mode }) => {
       processEnv[key] = env[key];
     }
   }
+  const buildVersion = getBuildVersionInfo(env);
 
   return {
     plugins: [
@@ -55,7 +78,10 @@ export default defineConfig(({ mode }) => {
     ],
     cacheDir: path.join(os.tmpdir(), 'vite-cache-daily-planner-app'),
     define: {
-      'process.env': processEnv
+      'process.env': processEnv,
+      __APP_COMMIT_SHA__: JSON.stringify(buildVersion.commitSha),
+      __APP_BRANCH__: JSON.stringify(buildVersion.branch),
+      __APP_BUILD_TIME__: JSON.stringify(buildVersion.buildTime)
     },
     test: {
       globals: true,
