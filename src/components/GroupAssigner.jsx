@@ -16,7 +16,7 @@ const GroupAssigner = ({
   const [internalGroups, setInternalGroups] = useState({});
 
   useEffect(() => {
-    if (groups !== undefined) return;
+    if (!open || groups !== undefined) return;
     const groupsRef = ref(appDb, GLOBAL_TASK_GROUPS_PATH);
     const unsubscribe = onValue(groupsRef, (snapshot) => {
       setInternalGroups(snapshot.val() || {});
@@ -25,7 +25,7 @@ const GroupAssigner = ({
       setInternalGroups({});
     });
     return () => unsubscribe();
-  }, [groups]);
+  }, [open, groups]);
 
   const effectiveGroups = groups !== undefined ? groups : internalGroups;
   const effectiveCreateGroup = onCreateGroup || createGlobalTaskGroup;

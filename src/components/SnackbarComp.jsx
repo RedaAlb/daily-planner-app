@@ -21,7 +21,7 @@ function SnackbarComp(props) {
       onClose={handleClose}
       anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
     >
-      <Alert onClose={handleClose} severity={"success"} sx={{ width: "100%" }}>
+      <Alert onClose={handleClose} severity={props.severity || "success"} sx={{ width: "100%" }}>
         {props.text}
       </Alert>
     </Snackbar>

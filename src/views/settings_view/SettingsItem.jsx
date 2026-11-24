@@ -9,10 +9,11 @@ function SettingsItem(props) {
 
 
   const onItemClick = async () => {
+    if (props.disabled) return;
     // If it does not have an onClick prop then its a toggle settings item.
     if (props.onClick) {
       props.onClick();
-    } else {
+    } else if (props.switch || props.saveKey) {
       const newToggle = !toggle;
       setToggle(newToggle);
 
@@ -27,11 +28,15 @@ function SettingsItem(props) {
     // If its a setting item that stores a value, e.g. a toggle, load the saved value.
     if (props.saveKey) {
       const loadSavedValue = () => {
-        const value = localStorage.getItem(props.saveKey);
+        try {
+          const value = localStorage.getItem(props.saveKey);
 
-        if (value !== null) {
-          const valueBool = JSON.parse(value);
-          setToggle(valueBool);
+          if (value !== null) {
+            const valueBool = JSON.parse(value);
+            setToggle(Boolean(valueBool));
+          }
+        } catch (err) {
+          console.warn(`Failed to parse setting "${props.saveKey}" from localStorage:`, err);
         }
       }
 
@@ -41,10 +46,10 @@ function SettingsItem(props) {
 
 
   return (
-    <ListItem disablePadding style={{ height: SETTING_ITEM_HEIGHT, borderBottom: "1px solid #b8b8b8" }}>
-      <ListItemButton onClick={onItemClick}>
+    <ListItem disablePadding style={{ minHeight: SETTING_ITEM_HEIGHT, borderBottom: "1px solid #b8b8b8" }}>
+      <ListItemButton onClick={onItemClick} disabled={Boolean(props.disabled)}>
         <ListItemIcon> {props.icon} </ListItemIcon>
-        <ListItemText primary={props.text} />
+        <ListItemText primary={props.text} secondary={props.secondaryText} />
         {props.switch ? (
           <Switch checked={toggle} />
         ) : null}

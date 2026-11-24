@@ -130,4 +130,30 @@ describe('useDebounce', () => {
 
     expect(callback).not.toHaveBeenCalled();
   });
+
+  it('supports manual flush() and cancel()', () => {
+    const callback = vi.fn();
+    const { result } = renderHook(() => useDebounce(callback, 300));
+
+    act(() => {
+      result.current('a');
+      result.current.flush();
+    });
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith('a');
+
+    // Timer was cleared by flush
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    // Cancel drops a pending call
+    act(() => {
+      result.current('b');
+      result.current.cancel();
+      vi.advanceTimersByTime(300);
+    });
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
 });

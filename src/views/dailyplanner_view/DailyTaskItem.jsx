@@ -1,4 +1,4 @@
-import React, { memo, useContext, useEffect, useState } from "react";
+import React, { memo, useContext, useEffect, useRef, useState } from "react";
 
 import { Box, IconButton, TextareaAutosize, Menu, MenuItem, ListItemIcon, ListItemText, Chip } from "@mui/material";
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
@@ -42,6 +42,7 @@ function DailyTaskItem(props) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const isDirtyRef = useRef(false);
 
   const menuOpen = Boolean(anchorEl);
   const itemDate = props.date || state?.currentDate;
@@ -65,7 +66,27 @@ function DailyTaskItem(props) {
     }
   };
 
+  const debouncedUpdateTask = useDebounce((newTask) => {
+    isDirtyRef.current = false;
+    if (props.onTaskUpdate) {
+      props.onTaskUpdate(props.index, newTask);
+    }
+  }, 300);
+
+  const debouncedUpdateTaskText = useDebounce((targetDate, targetTime, text) => {
+    isDirtyRef.current = false;
+    updateTask(targetDate, props.index, { text });
+    if (text.trim() !== "") {
+      initDate(targetDate, targetTime, dispatch);
+    }
+  }, 300);
+
   const onTickClick = (checkIndex) => {
+    if (props.onTaskUpdate) {
+      debouncedUpdateTask.flush();
+    } else {
+      debouncedUpdateTaskText.flush();
+    }
     const isChecked = checkIndex === 1;
     const newTask = { ...task, checkIndex: checkIndex, checked: isChecked };
     setTask(newTask);
@@ -74,43 +95,42 @@ function DailyTaskItem(props) {
       props.onTaskUpdate(props.index, newTask);
     } else {
       updateTask(itemDate, props.index, newTask);
+      if (checkIndex !== 0 || (newTask.text && newTask.text.trim() !== "")) {
+        initDate(itemDate, state?.time, dispatch);
+      }
     }
   };
-
-
-  const debouncedUpdateTask = useDebounce((newTask) => {
-    if (props.onTaskUpdate) {
-      props.onTaskUpdate(props.index, newTask);
-    }
-  }, 300);
-
-  const debouncedUpdateTaskText = useDebounce((text) => {
-    updateTask(itemDate, props.index, { text });
-    initDate(itemDate, state?.time, dispatch);
-  }, 300);
 
   const onTextChange = (event) => {
     const textboxValue = event.target.value;
     const newTask = { ...task, text: textboxValue };
 
+    isDirtyRef.current = true;
     setTask(newTask);
     if (props.onTaskUpdate) {
       debouncedUpdateTask(newTask);
     } else {
-      debouncedUpdateTaskText(textboxValue);
+      debouncedUpdateTaskText(itemDate, state?.time, textboxValue);
     }
   };
 
-  const handleBlur = (e) => {
-    const text = e.target.value;
-    const currentTask = { ...task, text };
+  const handleBlur = () => {
+    if (!isDirtyRef.current) return;
     if (props.onTaskUpdate) {
-      props.onTaskUpdate(props.index, currentTask);
+      debouncedUpdateTask.flush();
     } else {
-      updateTask(itemDate, props.index, { text });
-      initDate(itemDate, state?.time, dispatch);
+      debouncedUpdateTaskText.flush();
     }
   };
+
+  const itemDateKey = itemDate ? getDbDateKey(itemDate) : null;
+
+  useEffect(() => {
+    return () => {
+      debouncedUpdateTask.flush();
+      debouncedUpdateTaskText.flush();
+    };
+  }, [itemDateKey, debouncedUpdateTask, debouncedUpdateTaskText]);
 
   const handleMoveToDate = async (targetDate) => {
     if (!targetDate) return;
@@ -131,7 +151,9 @@ function DailyTaskItem(props) {
     if (targetDateKey === currentDateKey) return;
 
     const targetDateData = await loadDate(targetDate);
-    const targetTasks = targetDateData[TASKS_PATH] || Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
+    const targetTasks = targetDateData[TASKS_PATH]
+      ? [...targetDateData[TASKS_PATH]]
+      : Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, checked: false, text: "" }));
 
     let emptyIndex = targetTasks.findIndex(t => !t || !t.text || t.text === "");
     if (emptyIndex !== -1) {
@@ -140,14 +162,16 @@ function DailyTaskItem(props) {
       targetTasks.push(task);
     }
 
-    updateDateTasks(targetDateKey, targetTasks);
-    ensureDateKeyExists(targetDateKey);
+    // Write to the target date first before clearing the source slot
+    const targetSaved = await updateDateTasks(targetDateKey, targetTasks);
+    if (targetSaved === false) return;
+    await ensureDateKeyExists(targetDateKey);
 
     const currentTasks = state?.tasks ? [...state.tasks] : [];
     currentTasks[props.index] = { checkIndex: 0, checked: false, text: "" };
 
     const compactedCurrent = compactDateTasks(currentTasks);
-    updateDateTasks(currentDateKey, compactedCurrent);
+    await updateDateTasks(currentDateKey, compactedCurrent);
     if (dispatch) {
       dispatch({ type: SET_TASKS, payload: compactedCurrent });
     }
@@ -194,25 +218,28 @@ function DailyTaskItem(props) {
   };
 
   const handleAssignGroup = async (groupId) => {
-    if (!groupId) return;
+    const normalizedGroupId = groupId || null;
     setIsFocused(false);
     if (document.activeElement && typeof document.activeElement.blur === "function") {
       document.activeElement.blur();
     }
 
     if (props.onAssignGroup) {
-      await props.onAssignGroup(task, props.index, groupId, itemDate);
+      await props.onAssignGroup(task, props.index, normalizedGroupId, itemDate);
       return;
     }
 
-    // Just tag the task with the groupId — it stays on its date
-    const newTask = { ...task, groupId };
+    // Tag (or clear) the task's groupId — it stays on its date
+    const newTask = { ...task, groupId: normalizedGroupId };
     setTask(newTask);
     updateTask(itemDate, props.index, newTask);
-    initDate(itemDate, state?.time, dispatch);
+    if (normalizedGroupId) {
+      initDate(itemDate, state?.time, dispatch);
+    }
   };
 
   useEffect(() => {
+    isDirtyRef.current = false;
     setTask(props.task);
   }, [props.task?.text, props.task?.checkIndex, props.task]);
 
@@ -337,6 +364,7 @@ function DailyTaskItem(props) {
       <GroupAssigner
         anchorEl={assignerAnchorEl}
         onClose={handleCloseGroupAssigner}
+        currentGroupId={task?.groupId || null}
         onAssignGroup={handleAssignGroup}
       />
     </div>

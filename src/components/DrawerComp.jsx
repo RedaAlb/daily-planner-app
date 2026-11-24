@@ -11,17 +11,17 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import TodayIcon from '@mui/icons-material/Today';
+import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import FitnessCenterIcon from '@mui/icons-material/FitnessCenter';
 import Avatar from "@mui/material/Avatar";
 import Chip from "@mui/material/Chip";
 import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 
-import { GLOBAL_TASKS_VIEW_PATH, GYM_WEIGHTS_VIEW_PATH, SETTINGS_VIEW_PATH } from "../utils/constants";
+import { GLOBAL_TASKS_VIEW_PATH, SETTINGS_VIEW_PATH, TASKS_VIEW_PATH } from "../utils/constants";
 import { useAuth } from "../context/AuthContext";
 
 
@@ -32,19 +32,10 @@ function DrawerComp(props) {
   const [drawerState, setDrawerState] = useState(false);
 
 
-  const onDailyPlannerClick = () => {
-    navigate("/");
-  }
-
-  const onGymWeightsClick = () => {
-    navigate(GYM_WEIGHTS_VIEW_PATH);
-  }
-
-
-
-  const onSettingsClick = () => {
-    navigate(SETTINGS_VIEW_PATH);
-  }
+  const navigateTo = (path) => {
+    setDrawerState(false);
+    navigate(path);
+  };
 
 
   return (
@@ -63,18 +54,27 @@ function DrawerComp(props) {
             </ListItem>
 
             <ListItem disablePadding>
-              <ListItemButton onClick={onDailyPlannerClick}>
+              <ListItemButton onClick={() => navigateTo("/")}>
                 <ListItemIcon> <TodayIcon /> </ListItemIcon>
                 <ListItemText primary="Daily Planner" />
               </ListItemButton>
             </ListItem>
 
             <ListItem disablePadding>
-              <ListItemButton onClick={onGymWeightsClick}>
-                <ListItemIcon> <FitnessCenterIcon /> </ListItemIcon>
-                <ListItemText primary="Gym Weights" />
+              <ListItemButton onClick={() => navigateTo(TASKS_VIEW_PATH)}>
+                <ListItemIcon> <FormatListNumberedIcon /> </ListItemIcon>
+                <ListItemText primary="Tasks" />
               </ListItemButton>
             </ListItem>
+
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => navigateTo(GLOBAL_TASKS_VIEW_PATH)}>
+                <ListItemIcon> <CheckBoxIcon /> </ListItemIcon>
+                <ListItemText primary="Global Tasks" />
+              </ListItemButton>
+            </ListItem>
+
+            {/* Gym Weights is no longer used and has been removed from the sidebar. */}
 
             <Divider />
 
@@ -83,7 +83,7 @@ function DrawerComp(props) {
             </ListItem>
 
             <ListItem disablePadding>
-              <ListItemButton onClick={onSettingsClick}>
+              <ListItemButton onClick={() => navigateTo(SETTINGS_VIEW_PATH)}>
                 <ListItemIcon> <SettingsIcon /> </ListItemIcon>
                 <ListItemText primary="Settings" />
               </ListItemButton>
@@ -131,7 +131,7 @@ function DrawerComp(props) {
               </Stack>
             ) : (
               <Stack spacing={1}>
-                <Chip label="Demo Mode (Local Storage)" color="default" size="small" variant="outlined" />
+                <Chip label="Demo Mode" color="default" size="small" variant="outlined" />
                 <ListItem disablePadding>
                   <ListItemButton onClick={login} sx={{ borderRadius: 1, bgcolor: "action.selected" }}>
                     <ListItemIcon><LoginIcon color="primary" fontSize="small" /></ListItemIcon>

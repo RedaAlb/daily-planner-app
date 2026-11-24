@@ -179,7 +179,7 @@ const ListItemComponent = memo(({
 
         <Checkbox
           checked={localChecked}
-          onClick={handleCheckboxToggle}
+          onChange={handleCheckboxToggle}
           icon={notCheckedIcon}
           checkedIcon={checkedIcon}
           sx={{ padding: 0, fontSize: "30px" }}
@@ -292,13 +292,7 @@ const ListItemComponent = memo(({
                 <ListItemText>Remove date</ListItemText>
               </MenuItem>
             )}
-            {!isDated && !item.groupId && (
-              <MenuItem onClick={handleOpenDatePicker}>
-                <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
-                <ListItemText>Move to date...</ListItemText>
-              </MenuItem>
-            )}
-            {!isDated && item.groupId && (
+            {!isDated && (
               <MenuItem onClick={handleOpenDatePicker}>
                 <ListItemIcon><CalendarTodayIcon fontSize="small" /></ListItemIcon>
                 <ListItemText>Move to date...</ListItemText>
@@ -558,6 +552,11 @@ const OrderedList = ({
     }
   }, [isAnyExpanded, setIsAllExpanded]);
 
+  const allGroupKeysRef = React.useRef(allGroupKeys);
+  allGroupKeysRef.current = allGroupKeys;
+  const isAnyExpandedRef = React.useRef(isAnyExpanded);
+  isAnyExpandedRef.current = isAnyExpanded;
+
   const isFirstRender = React.useRef(true);
   useEffect(() => {
     if (isFirstRender.current) {
@@ -565,10 +564,11 @@ const OrderedList = ({
       return;
     }
     if (toggleExpandAllSignal > 0) {
+      const targetExpanded = !isAnyExpandedRef.current;
       setExpandedGroups(() => {
         const newExpanded = {};
-        allGroupKeys.forEach(k => {
-          newExpanded[k] = !isAnyExpanded;
+        allGroupKeysRef.current.forEach(k => {
+          newExpanded[k] = targetExpanded;
         });
         return newExpanded;
       });
@@ -593,8 +593,7 @@ const OrderedList = ({
           const groupKey = 'ungrouped';
           const group = groupedItems[groupKey];
           return (
-            <Accordion 
-              defaultExpanded 
+            <Accordion
               expanded={expandedGroups[groupKey] !== false}
               onChange={handleAccordionChange(groupKey)}
               disableGutters 
@@ -743,10 +742,9 @@ const OrderedList = ({
                 return (
                   <Draggable key={groupKey} draggableId={groupKey} index={index} isDragDisabled={!showGroupDragHandles}>
                     {(providedGroup) => (
-                      <Accordion 
+                      <Accordion
                         ref={providedGroup.innerRef}
                         {...providedGroup.draggableProps}
-                        defaultExpanded 
                         expanded={expandedGroups[groupKey] !== false}
                         onChange={handleAccordionChange(groupKey)}
                         disableGutters 

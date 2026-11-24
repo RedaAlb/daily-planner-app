@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useMemo } from 'react';
 
 // Debounces `callback` by `delay` ms. If the page is hidden or unloaded (reload, tab close,
 // app backgrounded on mobile) while a call is pending, it fires immediately instead of being lost.
@@ -11,6 +11,14 @@ const useDebounce = (callback, delay) => {
   useEffect(() => {
     callbackRef.current = callback;
   }, [callback]);
+
+  const cancel = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+      pendingArgsRef.current = null;
+    }
+  }, []);
 
   const flush = useCallback(() => {
     if (timeoutRef.current === null) return;
@@ -36,28 +44,28 @@ const useDebounce = (callback, delay) => {
     return () => {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      cancel();
+    };
+  }, [flush, cancel]);
 
+  const debouncedCallback = useMemo(() => {
+    const fn = (...args) => {
       if (timeoutRef.current !== null) {
         clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-        pendingArgsRef.current = null;
       }
+
+      pendingArgsRef.current = args;
+      timeoutRef.current = setTimeout(() => {
+        timeoutRef.current = null;
+        const pendingArgs = pendingArgsRef.current;
+        pendingArgsRef.current = null;
+        callbackRef.current(...pendingArgs);
+      }, delay);
     };
-  }, [flush]);
-
-  const debouncedCallback = useCallback((...args) => {
-    if (timeoutRef.current !== null) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    pendingArgsRef.current = args;
-    timeoutRef.current = setTimeout(() => {
-      timeoutRef.current = null;
-      const pendingArgs = pendingArgsRef.current;
-      pendingArgsRef.current = null;
-      callbackRef.current(...pendingArgs);
-    }, delay);
-  }, [delay]);
+    fn.flush = flush;
+    fn.cancel = cancel;
+    return fn;
+  }, [delay, flush, cancel]);
 
   return debouncedCallback;
 };

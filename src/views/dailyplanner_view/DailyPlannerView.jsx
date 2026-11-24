@@ -13,12 +13,8 @@ import DailyPlannerRight from "./DailyPlannerRight";
 import LostConnection from "../../components/LostConnection";
 
 
-function DailyPlannerView(props) {
-  const contextData = useContext(DailyplannerContext);
-  const localData = useDailyPlanner();
-  const { state, dispatch } = (contextData && contextData.state) ? contextData : localData;
-
-  const content = (
+function DailyPlannerContent() {
+  return (
     <>
       <div className="daily-planner-view">
         <DailyPlannerTop />
@@ -35,16 +31,26 @@ function DailyPlannerView(props) {
       <LostConnection />
     </>
   );
+}
 
-  if (contextData && contextData.state) {
-    return content;
-  }
+function StandaloneDailyPlannerView() {
+  const localData = useDailyPlanner();
 
   return (
-    <DailyplannerContext.Provider value={{ state, dispatch }}>
-      {content}
+    <DailyplannerContext.Provider value={localData}>
+      <DailyPlannerContent />
     </DailyplannerContext.Provider>
   );
+}
+
+function DailyPlannerView() {
+  const contextData = useContext(DailyplannerContext);
+
+  if (contextData && contextData.state) {
+    return <DailyPlannerContent />;
+  }
+
+  return <StandaloneDailyPlannerView />;
 }
 
 export default DailyPlannerView;

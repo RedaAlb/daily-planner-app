@@ -12,7 +12,11 @@ import { loadAllDateKeys, loadDate, subscribeToDate, subscribeToDateKeys } from 
 import { INITIAL_STATE } from "../utils/constants";
 
 export const useDailyPlanner = () => {
-  const [state, dispatch] = useReducer(dailyplannerReducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(
+    dailyplannerReducer,
+    INITIAL_STATE,
+    (initial) => ({ ...initial, currentDate: new Date() })
+  );
 
   useEffect(() => {
     // Clear time while loading new date

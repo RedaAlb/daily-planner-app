@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useContext, memo } from "react";
+import React, { useEffect, useState, useCallback, useContext, useRef, memo } from "react";
 import { format, isToday } from "date-fns";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { useNavigate } from "react-router-dom";
@@ -113,6 +113,8 @@ function TasksView() {
   const [sortedDateKeys, setSortedDateKeys] = useState([]);
   const [groups, setGroups] = useState({});
   const [loading, setLoading] = useState(true);
+  const dateGroupsRef = useRef(dateGroups);
+  dateGroupsRef.current = dateGroups;
 
   const dailyPlannerCtx = useContext(dailyplannerContext);
   const navigate = useNavigate();
@@ -132,6 +134,7 @@ function TasksView() {
         allTasks[todayKey] = Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
       }
 
+      dateGroupsRef.current = allTasks;
       setDateGroups(allTasks);
 
       // Sort dates oldest to newest
@@ -161,7 +164,9 @@ function TasksView() {
     setDateGroups(prev => {
       const currentDateTasks = prev[dateKey] ? [...prev[dateKey]] : [];
       currentDateTasks[originalIndex] = taskFields;
-      return { ...prev, [dateKey]: currentDateTasks };
+      const next = { ...prev, [dateKey]: currentDateTasks };
+      dateGroupsRef.current = next;
+      return next;
     });
 
     const dateObj = parseDateKey(dateKey);
@@ -176,59 +181,60 @@ function TasksView() {
 
     if (sourceDateKey === targetDateKey) return;
 
-    setDateGroups(prev => {
-      const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
-      sourceTasks[index] = { checkIndex: 0, text: "" };
+    const { originalIndex: _ignored, ...cleanTask } = task;
+    const prev = dateGroupsRef.current;
 
-      const destTasks = prev[targetDateKey] ? [...prev[targetDateKey]] : Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, text: "" }));
+    const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
+    sourceTasks[index] = { checkIndex: 0, checked: false, text: "" };
 
-      let emptyIndex = destTasks.findIndex(t => !t || !t.text || t.text === "");
-      if (emptyIndex !== -1) {
-        destTasks[emptyIndex] = task;
-      } else {
-        destTasks.push(task);
-      }
+    const destTasks = prev[targetDateKey]
+      ? [...prev[targetDateKey]]
+      : Array.from({ length: NUM_TASK_ITEMS }, () => ({ checkIndex: 0, checked: false, text: "" }));
 
-      const newGroups = {
-        ...prev,
-        [sourceDateKey]: sourceTasks,
-        [targetDateKey]: destTasks
-      };
+    const emptyIndex = destTasks.findIndex(t => !t || !t.text || t.text === "");
+    if (emptyIndex !== -1) {
+      destTasks[emptyIndex] = cleanTask;
+    } else {
+      destTasks.push(cleanTask);
+    }
 
-      if (!prev[targetDateKey]) {
-        const newKeys = Object.keys(newGroups).sort((a, b) => parseDateKey(a) - parseDateKey(b));
-        // Note: setting state inside another setState updater is okay in React 18 (it batches), 
-        // but to be perfectly safe from side-effect rules, it's better. We'll leave it as is 
-        // since it's just another state update.
-        setTimeout(() => setSortedDateKeys(newKeys), 0);
-      }
+    const newGroups = {
+      ...prev,
+      [sourceDateKey]: sourceTasks,
+      [targetDateKey]: destTasks
+    };
 
-      setTimeout(() => {
-        updateDateTasks(sourceDateKey, sourceTasks);
-        updateDateTasks(targetDateKey, destTasks);
-        ensureDateKeyExists(targetDateKey);
-      }, 0);
+    dateGroupsRef.current = newGroups;
+    setDateGroups(newGroups);
 
-      return newGroups;
-    });
+    if (!prev[targetDateKey]) {
+      const newKeys = Object.keys(newGroups).sort((a, b) => parseDateKey(a) - parseDateKey(b));
+      setSortedDateKeys(newKeys);
+    }
+
+    updateDateTasks(sourceDateKey, sourceTasks);
+    updateDateTasks(targetDateKey, destTasks);
+    ensureDateKeyExists(targetDateKey);
   }, []);
 
   const handleAssignGroup = useCallback(async (task, index, groupId, sourceDate) => {
-    // Just tag the task with the groupId — it stays on its date
+    // Tag (or clear) the task with groupId — it stays on its date
     const sourceDateKey = getDbDateKey(sourceDate);
-    const updatedTask = { ...task, groupId };
-    setDateGroups(prev => {
-      const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
-      sourceTasks[index] = updatedTask;
-      setTimeout(() => {
-        updateDateTasks(sourceDateKey, sourceTasks);
-      }, 0);
+    const { originalIndex: _ignored, ...cleanTask } = task;
+    const updatedTask = { ...cleanTask, groupId: groupId || null };
 
-      return {
-        ...prev,
-        [sourceDateKey]: sourceTasks
-      };
-    });
+    const prev = dateGroupsRef.current;
+    const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
+    sourceTasks[index] = updatedTask;
+
+    const nextGroups = {
+      ...prev,
+      [sourceDateKey]: sourceTasks
+    };
+    dateGroupsRef.current = nextGroups;
+    setDateGroups(nextGroups);
+
+    await updateDateTasks(sourceDateKey, sourceTasks);
   }, []);
 
   const handleRemoveDate = useCallback((task, index, sourceDate) => {
@@ -238,8 +244,10 @@ function TasksView() {
 
     setDateGroups(prev => {
       const sourceTasks = prev[sourceDateKey] ? [...prev[sourceDateKey]] : [];
-      sourceTasks[index] = { checkIndex: 0, text: "" };
-      return { ...prev, [sourceDateKey]: sourceTasks };
+      sourceTasks[index] = { checkIndex: 0, checked: false, text: "" };
+      const next = { ...prev, [sourceDateKey]: sourceTasks };
+      dateGroupsRef.current = next;
+      return next;
     });
 
     moveDailyTaskToGlobal(sourceDateKey, index, {
@@ -258,89 +266,92 @@ function TasksView() {
     const sourceDateKey = source.droppableId;
     const destDateKey = destination.droppableId;
 
-    setDateGroups(prev => {
-      const rawSource = prev[sourceDateKey] || [];
-      const sourceTasks = normalizeFirebaseArray(rawSource);
+    const prev = dateGroupsRef.current;
+    const rawSource = prev[sourceDateKey] || [];
+    const sourceTasks = normalizeFirebaseArray(rawSource);
 
-      const rawDest = prev[destDateKey] || [];
-      const destTasks = sourceDateKey === destDateKey
-        ? sourceTasks
-        : normalizeFirebaseArray(rawDest);
+    const rawDest = prev[destDateKey] || [];
+    const destTasks = sourceDateKey === destDateKey
+      ? sourceTasks
+      : normalizeFirebaseArray(rawDest);
 
-      const visibleSourceTasks = sourceTasks.map((t, i) => ({ ...t, originalIndex: i }))
+    const visibleSourceTasks = sourceTasks.map((t, i) => ({ ...t, originalIndex: i }))
+      .filter(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
+
+    const draggedTask = visibleSourceTasks[source.index];
+    if (!draggedTask) return;
+
+    if (sourceDateKey === destDateKey) {
+      const newVisible = Array.from(visibleSourceTasks);
+      newVisible.splice(source.index, 1);
+      newVisible.splice(destination.index, 0, draggedTask);
+
+      const newFullTasks = [...sourceTasks];
+      let visibleIdx = 0;
+      for (let i = 0; i < newFullTasks.length; i++) {
+        const t = newFullTasks[i];
+        if (t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0) {
+          const { originalIndex, ...preservedTask } = newVisible[visibleIdx];
+          newFullTasks[i] = preservedTask;
+          visibleIdx++;
+        }
+      }
+
+      const compactedFull = compactDateTasks(newFullTasks);
+      const nextGroups = { ...prev, [sourceDateKey]: compactedFull };
+      dateGroupsRef.current = nextGroups;
+      setDateGroups(nextGroups);
+      updateDateTasks(sourceDateKey, compactedFull);
+    } else {
+      sourceTasks[draggedTask.originalIndex] = { checkIndex: 0, checked: false, text: "" };
+
+      const visibleDestTasks = destTasks
         .filter(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
 
-      const draggedTask = visibleSourceTasks[source.index];
-      if (!draggedTask) return prev;
+      const { originalIndex: _, ...draggedPreserved } = draggedTask;
 
-      if (sourceDateKey === destDateKey) {
-        const newVisible = Array.from(visibleSourceTasks);
-        newVisible.splice(source.index, 1);
-        newVisible.splice(destination.index, 0, draggedTask);
-
-        const newFullTasks = [...sourceTasks];
-        let visibleIdx = 0;
-        for (let i = 0; i < newFullTasks.length; i++) {
-          const t = newFullTasks[i];
-          if (t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0) {
-            const { originalIndex, ...preservedTask } = newVisible[visibleIdx];
-            newFullTasks[i] = preservedTask;
-            visibleIdx++;
+      let actualIndex = 0;
+      if (destination.index < visibleDestTasks.length) {
+        let visibleCount = 0;
+        for (let i = 0; i < destTasks.length; i++) {
+          if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
+            if (visibleCount === destination.index) {
+              actualIndex = i;
+              break;
+            }
+            visibleCount++;
           }
         }
-
-        const compactedFull = compactDateTasks(newFullTasks);
-        updateDateTasks(sourceDateKey, compactedFull);
-        return { ...prev, [sourceDateKey]: compactedFull };
+      } else if (visibleDestTasks.length > 0) {
+        let lastVisibleIdx = -1;
+        for (let i = 0; i < destTasks.length; i++) {
+          if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
+            lastVisibleIdx = i;
+          }
+        }
+        actualIndex = lastVisibleIdx + 1;
       } else {
-        sourceTasks[draggedTask.originalIndex] = { checkIndex: 0, text: "" };
-
-        const visibleDestTasks = destTasks
-          .filter(t => t && t.text && typeof t.text === "string" && t.text.trim() !== "" && t.checkIndex === 0);
-
-        const { originalIndex: _, ...draggedPreserved } = draggedTask;
-
-        let actualIndex = 0;
-        if (destination.index < visibleDestTasks.length) {
-          let visibleCount = 0;
-          for (let i = 0; i < destTasks.length; i++) {
-            if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
-              if (visibleCount === destination.index) {
-                actualIndex = i;
-                break;
-              }
-              visibleCount++;
-            }
-          }
-        } else if (visibleDestTasks.length > 0) {
-          let lastVisibleIdx = -1;
-          for (let i = 0; i < destTasks.length; i++) {
-            if (destTasks[i] && destTasks[i].text && typeof destTasks[i].text === "string" && destTasks[i].text.trim() !== "" && destTasks[i].checkIndex === 0) {
-              lastVisibleIdx = i;
-            }
-          }
-          actualIndex = lastVisibleIdx + 1;
-        } else {
-          actualIndex = 0;
-        }
-
-        const newDestTasks = [...destTasks];
-        newDestTasks.splice(actualIndex, 0, draggedPreserved);
-
-        const compactedSource = compactDateTasks(sourceTasks);
-        const compactedDest = compactDateTasks(newDestTasks);
-
-        updateDateTasks(sourceDateKey, compactedSource);
-        updateDateTasks(destDateKey, compactedDest);
-        ensureDateKeyExists(destDateKey);
-
-        return {
-          ...prev,
-          [sourceDateKey]: compactedSource,
-          [destDateKey]: compactedDest
-        };
+        actualIndex = 0;
       }
-    });
+
+      const newDestTasks = [...destTasks];
+      newDestTasks.splice(actualIndex, 0, draggedPreserved);
+
+      const compactedSource = compactDateTasks(sourceTasks);
+      const compactedDest = compactDateTasks(newDestTasks);
+
+      const nextGroups = {
+        ...prev,
+        [sourceDateKey]: compactedSource,
+        [destDateKey]: compactedDest
+      };
+      dateGroupsRef.current = nextGroups;
+      setDateGroups(nextGroups);
+
+      updateDateTasks(sourceDateKey, compactedSource);
+      updateDateTasks(destDateKey, compactedDest);
+      ensureDateKeyExists(destDateKey);
+    }
   }, []);
 
   if (loading) {

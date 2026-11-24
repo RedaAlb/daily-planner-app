@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, update, set, remove, push } from 'firebase/database';
-import { appDb, moveDailyTaskToGlobal, updateTask as updateDailyTask, subscribeToAllGroupedTasks } from '../utils/Firebase';
+import { appDb, moveDailyTaskToGlobal, moveDailyTasksToGlobal, updateTask as updateDailyTask, subscribeToAllGroupedTasks } from '../utils/Firebase';
 import { GLOBAL_TASKS_PATH, GLOBAL_TASK_GROUPS_PATH } from '../utils/constants';
 
 // Parse a dateKey like "5-8-2026" into a Date object
@@ -359,14 +359,36 @@ const useGlobalTasks = () => {
       await update(ref(appDb), updates);
     }
 
-    // Move all daily tasks in this group to global_tasks (ungrouped) so they move to Ungrouped instead of vanishing
-    for (const dailyItem of dailyGroupedItems) {
+    // Group daily tasks by dateKey and move each date's tasks in one batch so compaction
+    // doesn't shift indices out from under subsequent items on the same day.
+    const dailyByDate = {};
+    dailyGroupedItems.forEach((dailyItem) => {
       if (dailyItem.groupId === groupId) {
-        await moveDailyTaskToGlobal(dailyItem.dateKey, dailyItem.dateIndex, {
+        if (!dailyByDate[dailyItem.dateKey]) {
+          dailyByDate[dailyItem.dateKey] = [];
+        }
+        dailyByDate[dailyItem.dateKey].push({
+          dateIndex: dailyItem.dateIndex,
           text: dailyItem.text,
           checkIndex: dailyItem.checkIndex ?? 0,
           groupId: null
         });
+      }
+    });
+
+    for (const [dateKey, itemsForDate] of Object.entries(dailyByDate)) {
+      if (typeof moveDailyTasksToGlobal === "function") {
+        await moveDailyTasksToGlobal(dateKey, itemsForDate);
+      } else {
+        // Fallback for older test mocks: iterate descending by dateIndex
+        const sortedDesc = [...itemsForDate].sort((a, b) => b.dateIndex - a.dateIndex);
+        for (const item of sortedDesc) {
+          await moveDailyTaskToGlobal(dateKey, item.dateIndex, {
+            text: item.text,
+            checkIndex: item.checkIndex,
+            groupId: null
+          });
+        }
       }
     }
 
